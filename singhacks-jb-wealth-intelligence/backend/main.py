@@ -1,0 +1,33 @@
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@app.get("/")
+def root():
+    return {"message": "Backend is running"}
+
+
+@app.get("/clients")
+def get_clients():
+    return [
+        {
+            "id": 1,
+            "name": "Alice Tan",
+            "risk_score": 72
+        },
+        {
+            "id": 2,
+            "name": "David Lee",
+            "risk_score": 41
+        }
+    ]
