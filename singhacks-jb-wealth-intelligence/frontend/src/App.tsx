@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   Sidebar,
 } from './components/Sidebar';
@@ -20,6 +20,7 @@ import {
 } from './data/placeholderData';
 import { ClientDossier, RiskSeverity } from './types';
 import { FileText, SlidersHorizontal, Sparkles } from 'lucide-react';
+import { getPrioritization } from './services/prioritization';
 
 export default function App() {
   // Navigation & View State
@@ -28,6 +29,42 @@ export default function App() {
   );
   const [selectedClientId, setSelectedClientId] = useState<string>('ravi-chandrasekaran');
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [clients, setClients] = useState(placeholderClients);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    getPrioritization()
+      .then((result) => {
+        if (!isMounted) return;
+
+        const prioritizationByName = new Map(
+          result.clients.map((client) => [client.client_name, client]),
+        );
+        setClients(
+          placeholderClients.map((client) => {
+            const prioritized = prioritizationByName.get(client.name);
+            if (!prioritized) return client;
+
+            return {
+              ...client,
+              riskLevel: prioritized.risk_level,
+              urgencyScore: prioritized.urgency_score,
+              prioritizationTriggers: prioritized.trigger_reasons.map(
+                (trigger) => `${trigger.label} (+${trigger.points})`,
+              ),
+            };
+          }),
+        );
+      })
+      .catch((error) => {
+        console.error('Unable to load global book prioritization', error);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Search & Filter State
   const [searchQuery, setSearchQuery] = useState('');
@@ -74,7 +111,7 @@ export default function App() {
 
   // Select client by name (e.g. from affected accounts pills)
   const handleSelectClientByName = (name: string) => {
-    const found = placeholderClients.find(
+    const found = clients.find(
       (c) =>
         c.name.toLowerCase().includes(name.toLowerCase()) ||
         name.toLowerCase().includes(c.name.toLowerCase()) ||
@@ -92,14 +129,14 @@ export default function App() {
   // Current client for detail view
   const currentClient = useMemo(() => {
     return (
-      placeholderClients.find((c) => c.id === selectedClientId) ||
-      placeholderClients[0]
+      clients.find((c) => c.id === selectedClientId) ||
+      clients[0]
     );
   }, [selectedClientId]);
 
   // Filtered priority clients for Section 02
   const filteredPriorityClients = useMemo(() => {
-    return placeholderClients.filter((c) => {
+    return clients.filter((c) => {
       const matchesSearch =
         searchQuery === '' ||
         c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -112,7 +149,7 @@ export default function App() {
 
       return matchesSearch && matchesRisk;
     });
-  }, [searchQuery, selectedRiskFilter]);
+  }, [clients, searchQuery, selectedRiskFilter]);
 
   return (
     <div className="min-h-screen bg-[#faf9f6] text-[#121212] font-sans antialiased flex flex-col selection:bg-neutral-900 selection:text-[#faf9f6]">
@@ -133,7 +170,7 @@ export default function App() {
         }}
         mobileOpen={mobileSidebarOpen}
         onCloseMobile={() => setMobileSidebarOpen(false)}
-        clientCount={placeholderClients.length}
+        clientCount={clients.length}
       />
 
       {/* 2. Docked Top Header */}
@@ -240,7 +277,7 @@ export default function App() {
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() =>
-                        setExpandedCardIds(new Set(placeholderClients.map((c) => c.id)))
+                        setExpandedCardIds(new Set(clients.map((c) => c.id)))
                       }
                       className="hover:text-[#121212] underline underline-offset-4"
                     >
@@ -293,7 +330,7 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => {
-                      setActiveBriefClient(placeholderClients[0]);
+                      setActiveBriefClient(clients[0]);
                       setIsBriefModalOpen(true);
                     }}
                     className="px-4 py-2 bg-[#121212] text-[#faf9f6] hover:bg-neutral-800 text-[10px] font-medium uppercase tracking-[0.14em] transition-colors flex items-center gap-2 cursor-pointer"
@@ -333,7 +370,7 @@ export default function App() {
             }}
             onViewSourceData={() => setIsSourceDataModalOpen(true)}
             onSelectAnotherClient={handleSelectClient}
-            allClients={placeholderClients}
+            allClients={clients}
           />
         )}
 
@@ -341,7 +378,7 @@ export default function App() {
         {currentView === 'clients' && (
           <div className="px-6 sm:px-10 py-10 max-w-6xl mx-auto w-full">
             <ClientsListView
-              clients={placeholderClients}
+              clients={clients}
               onSelectClient={handleSelectClient}
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
@@ -372,7 +409,7 @@ export default function App() {
       <NewOrderModal
         isOpen={isNewOrderOpen}
         onClose={() => setIsNewOrderOpen(false)}
-        clients={placeholderClients}
+        clients={clients}
         onOrderPlaced={(name, type) => {
             showToast(`Prototype action recorded for ${name} (${type})`);
         }}

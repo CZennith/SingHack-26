@@ -84,6 +84,8 @@ export interface ClientDossier {
   summary: string;
   tags: string[];
   suggestedNextStep: string;
+  urgencyScore?: number;
+  prioritizationTriggers?: string[];
   
   // Detailed client profile fields (for Image 3 client page)
   about: {

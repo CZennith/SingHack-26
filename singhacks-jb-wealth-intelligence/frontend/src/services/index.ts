@@ -1,4 +1,5 @@
 export { connectorConfig } from './connectorConfig';
+export { getPrioritization } from './prioritization';
 export type {
   AuditConnector,
   BackendConnectors,
@@ -11,3 +12,8 @@ export type {
   MarketDataConnector,
   WealthDataConnector,
 } from './connectorContracts';
+export type {
+  PrioritizationResponse,
+  PrioritizedClient,
+  PrioritizationTrigger,
+} from './prioritization';

@@ -111,6 +111,11 @@ export const ClientsListView: React.FC<ClientsListViewProps> = ({
                   <div className="font-mono text-[13px] font-medium text-[#121212]">
                     {client.aum}
                   </div>
+                  {client.urgencyScore !== undefined && (
+                    <div className="text-[11px] text-[#7A1C28] font-mono font-medium">
+                      Urgency: {client.urgencyScore}
+                    </div>
+                  )}
                   <div className="text-[11px] text-[#888888] font-mono">
                     LTV: {client.portfolio.borrowingLtvPercent}%
                   </div>
