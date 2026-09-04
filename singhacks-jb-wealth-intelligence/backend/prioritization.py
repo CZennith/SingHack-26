@@ -8,6 +8,8 @@ from typing import Any
 
 import pandas as pd
 
+from .data_loader import load_all
+
 
 DEFAULT_AS_OF = date(2026, 8, 26)
 RULE_WEIGHTS = {
@@ -15,10 +17,6 @@ RULE_WEIGHTS = {
     "cash_need_within_60_days": 30,
     "mandate_drift": 30,
 }
-
-
-def _load(data_dir: Path, filename: str) -> pd.DataFrame:
-    return pd.read_csv(data_dir / filename)
 
 
 def _risk_level(score: int) -> str:
@@ -120,12 +118,13 @@ def calculate_prioritization(
     data_dir: Path,
     as_of: date = DEFAULT_AS_OF,
 ) -> dict[str, Any]:
-    clients = _load(data_dir, "clients.csv")
-    portfolios = _load(data_dir, "portfolios.csv")
-    holdings = _load(data_dir, "holdings.csv")
-    mandates = _load(data_dir, "mandates.csv")
-    facilities = _load(data_dir, "credit_facilities.csv")
-    cash_needs = _load(data_dir, "planned_cash_needs.csv")
+    data = load_all(data_dir)
+    clients = data["clients"]
+    portfolios = data["portfolios"]
+    holdings = data["holdings"]
+    mandates = data["mandates"]
+    facilities = data["credit_facilities"]
+    cash_needs = data["planned_cash_needs"]
 
     trigger_maps = (
         _credit_triggers(facilities),
