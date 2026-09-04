@@ -54,7 +54,8 @@ class ConcentrationRow:
 class LiquidityResult:
     total_60d_obligations_usd: float
     tier1_liquid_value_usd: float
-    lcr: float
+    lcr: float | None
+    status: str                              # "COVERED" | "SHORTFALL"
     surplus_or_gap_usd: float
     sell_to_cover: list[dict[str, Any]]
     life_event_flags: list[dict[str, Any]]
