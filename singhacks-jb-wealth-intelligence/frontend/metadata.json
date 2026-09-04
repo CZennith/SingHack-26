@@ -1,0 +1,6 @@
+{
+  "name": "Aurelius Private Wealth",
+  "description": "Private Wealth Advisory and Relationship Manager Intelligence platform with automated portfolio synthesis, market impact monitoring, and client dossiers.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
