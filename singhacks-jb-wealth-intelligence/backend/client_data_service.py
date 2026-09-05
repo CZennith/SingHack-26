@@ -9,19 +9,34 @@ import json
 
 import pandas as pd
 
-from .data_repository import (
-    get_client,
-    get_client_cash_needs,
-    get_client_commitments,
-    get_client_facilities,
-    get_client_holdings,
-    get_client_portfolios,
-    get_client_rm_notes,
-    get_client_transactions,
-    get_event_log,
-    get_instruments_for_holdings,
-    get_market_context,
-)
+if __package__:
+    from .data_repository import (
+        get_client,
+        get_client_cash_needs,
+        get_client_commitments,
+        get_client_facilities,
+        get_client_holdings,
+        get_client_portfolios,
+        get_client_rm_notes,
+        get_client_transactions,
+        get_event_log,
+        get_instruments_for_holdings,
+        get_market_context,
+    )
+else:  # Support ``uvicorn main:app`` from inside ``backend``.
+    from data_repository import (
+        get_client,
+        get_client_cash_needs,
+        get_client_commitments,
+        get_client_facilities,
+        get_client_holdings,
+        get_client_portfolios,
+        get_client_rm_notes,
+        get_client_transactions,
+        get_event_log,
+        get_instruments_for_holdings,
+        get_market_context,
+    )
 
 _COLOURS = ["#1f1d1a", "#5d7a8c", "#a57d52", "#59725f", "#866d8c", "#8c887f"]
 

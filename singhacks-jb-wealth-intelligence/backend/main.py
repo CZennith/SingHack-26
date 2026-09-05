@@ -145,7 +145,12 @@ class ClientInsightsResponse(BaseModel):
     advisory: StrategicMatrix
 
 
-from .data_repository import get_clients as get_csv_clients
+if __package__:
+    # Package mode: ``uvicorn backend.main:app`` from the project root.
+    from .data_repository import get_clients as get_csv_clients
+else:
+    # Module mode: ``uvicorn main:app`` from inside ``backend``.
+    from data_repository import get_clients as get_csv_clients
 
 def fetch_client_profiles() -> list[ClientProfile]:
     clients = get_csv_clients()
@@ -171,7 +176,10 @@ def fetch_client_dossier(client_id: str) -> ClientDossierResponse:
     and allocation, retrieve the historical trajectory, and return a populated
     ClientDossierResponse. Raise a 404 when the client does not exist.
     """
-    from .client_data_service import build_client_dossier
+    if __package__:
+        from .client_data_service import build_client_dossier
+    else:
+        from client_data_service import build_client_dossier
 
     return ClientDossierResponse.model_validate(build_client_dossier(client_id))
 
@@ -182,7 +190,10 @@ def fetch_client_insights(client_id: str) -> ClientInsightsResponse:
     The generated payload may include a client profile summary as well as
     insights. Raise a 404 when the client does not exist.
     """
-    from .llm_service import build_client_insights
+    if __package__:
+        from .llm_service import build_client_insights
+    else:
+        from llm_service import build_client_insights
 
     return ClientInsightsResponse.model_validate(build_client_insights(client_id))
 
@@ -218,7 +229,10 @@ def get_client_insights(client_id: str) -> ClientInsightsResponse:
 @app.get("/clients/{client_id}/insights/stream")
 def stream_client_insights(client_id: str) -> StreamingResponse:
     """Send each AI insight section to the browser as it completes."""
-    from .llm_service import stream_client_insight_sections
+    if __package__:
+        from .llm_service import stream_client_insight_sections
+    else:
+        from llm_service import stream_client_insight_sections
 
     def events():
         try:

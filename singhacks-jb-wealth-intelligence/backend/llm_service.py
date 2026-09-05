@@ -17,7 +17,10 @@ from typing import Any
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from .client_data_service import build_client_llm_context
+if __package__:
+    from .client_data_service import build_client_llm_context
+else:  # Support ``uvicorn main:app`` from inside ``backend``.
+    from client_data_service import build_client_llm_context
 
 from dotenv import load_dotenv
 from openai import OpenAI
