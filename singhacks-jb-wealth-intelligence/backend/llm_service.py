@@ -9,9 +9,10 @@ sent to the frontend.
 import json
 from typing import Any
 import datetime 
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
+from collections.abc import Iterator
 
-from client_data_service import build_client_llm_context
+from .client_data_service import build_client_llm_context
 
 from pathlib import Path
 from dotenv import load_dotenv
@@ -52,6 +53,8 @@ Requirements:
     )
     output = openai_client.responses.create(
         model="gpt-5.6-terra",
+        reasoning={"effort": "low"},
+
         instructions=instructions,
         input=json.dumps(context["profile_summary"], ensure_ascii=False, separators=(",", ":")),
     )
@@ -91,7 +94,7 @@ def generate_portfolio_explanation(context: dict[str, Any]) -> dict:
 
     response = openai_client.responses.parse(
         model="gpt-5.6-terra",
-        #reasoning={"effort": "medium"},
+        reasoning={"effort": "low"},
         instructions="""
     Explain the portfolio in clear, client-friendly language.
 
@@ -167,6 +170,8 @@ def generate_proactive_advice(context: dict[str, Any]) -> dict:
 
     response = openai_client.responses.parse(
         model="gpt-5.6-terra",
+        reasoning={"effort": "low"},
+
         instructions="""
 You are an assistant for a private-banking Relationship Manager. Identify the
 most material client-specific discussion points from the supplied JSON.
@@ -223,6 +228,31 @@ def build_client_insights(client_id: str) -> dict:
             "portfolioExplanation": portfolio_explanation.result(),
             "advisory": advisory.result(),
         }
+
+
+def stream_client_insight_sections(client_id: str) -> Iterator[tuple[str, dict]]:
+    """Yield each independently generated insight as soon as it is complete.
+
+    This preserves the same bounded concurrency as the aggregate endpoint but
+    enables an SSE transport to update the UI one validated section at a time.
+    """
+    context = build_client_llm_context(client_id)
+    with ThreadPoolExecutor(max_workers=3, thread_name_prefix="client-insight") as executor:
+        futures = {
+            executor.submit(generate_profile_summary, context): "profileSummary",
+            executor.submit(generate_portfolio_explanation, context): "portfolioExplanation",
+            executor.submit(generate_proactive_advice, context): "advisory",
+        }
+        while futures:
+            completed, _ = wait(futures, timeout=15, return_when=FIRST_COMPLETED)
+            if not completed:
+                # Keeps intermediaries from timing out an otherwise healthy
+                # generation request. The SSE route emits this as a comment.
+                yield "heartbeat", {}
+                continue
+            for future in completed:
+                section = futures.pop(future)
+                yield section, future.result()
 
 
 

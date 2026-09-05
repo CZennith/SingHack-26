@@ -1,0 +1,9 @@
+[project]
+name = "jb-wealth-intelligence"
+version = "0.1.0"
+requires-python = ">=3.12"
+
+# The API intentionally lives outside Vercel's auto-discovered entrypoint
+# directories. Tell the FastAPI runtime exactly which ASGI application to run.
+[tool.vercel]
+entrypoint = "backend.main:app"

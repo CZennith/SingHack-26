@@ -18,7 +18,7 @@ import {
   executiveBriefing,
 } from './data/placeholderData';
 import { ClientDossier, RiskSeverity } from './types';
-import { fetchClientDossier, fetchClientInsights, fetchClients } from './services/clientsApi';
+import { fetchClientDossier, fetchClients, streamClientInsights } from './services/clientsApi';
 import { FileText, SlidersHorizontal, Sparkles } from 'lucide-react';
 
 export default function App() {
@@ -107,18 +107,19 @@ export default function App() {
       })
       .finally(() => setIsDossierLoading(false));
 
-    fetchClientInsights(selectedClientId, controller.signal)
-      .then((insights) => {
+    const closeInsightStream = streamClientInsights(selectedClientId, {
+      onInsight: (section, payload) => {
         setClients((previous) => previous.map((client) =>
-          client.id === selectedClientId ? { ...client, ...insights } : client,
+          client.id === selectedClientId ? { ...client, [section]: payload } : client,
         ));
-      })
-      .catch((error: unknown) => {
-        if (error instanceof DOMException && error.name === 'AbortError') return;
-        setInsightsLoadError(error instanceof Error ? error.message : 'Unable to load AI insights.');
-      });
+      },
+      onError: setInsightsLoadError,
+    });
 
-    return () => controller.abort();
+    return () => {
+      controller.abort();
+      closeInsightStream();
+    };
   }, [currentView, selectedClientId]);
 
   const showToast = (msg: string) => {
