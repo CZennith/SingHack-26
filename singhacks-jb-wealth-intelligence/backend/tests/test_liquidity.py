@@ -273,3 +273,155 @@ def test_life_event_flag_not_raised_for_non_matching_life_stage() -> None:
     assert flags == [], (
         f"Expected no flags for non-matching life_stage 'Wealth accumulation', got {flags}"
     )
+
+
+# ---------------------------------------------------------------------------
+# Test 6: Business-sale keyword specifically generates a flag
+# ---------------------------------------------------------------------------
+
+def test_life_event_flag_triggers_for_business_sale_keyword() -> None:
+    """life_stage containing 'business sale' generates a flag when need > 20%
+    of Tier-1 and LCR < 1.2.
+
+    Setup:
+    - life_stage = "Business sale pending"  (contains "business sale" keyword)
+    - Tier-1 = USD 5,000,000; need = USD 2,000,000 (40% of Tier-1, > 20%)
+    - lcr = 0.9 (< 1.2 threshold)
+    - due_from within 18 months of 2026-08-26
+    """
+    flags = life_event_flags(
+        client_id="CL-TEST",
+        tier1_value=5_000_000.0,
+        lcr=0.9,
+        data=_make_data(
+            life_stage="Business sale pending",
+            needs=[{
+                "client_id": "CL-TEST",
+                "need_id": "CN-BS",
+                "description": "Business sale proceeds distribution",
+                "currency": "USD",
+                "amount": 2_000_000.0,
+                "due_from": "2027-06-01",   # within 18 months of 2026-08-26
+                "due_to": "2027-07-31",
+            }],
+        ),
+        as_of=date(2026, 8, 26),
+    )
+
+    assert len(flags) >= 1, (
+        "Expected at least one life-event flag for 'Business sale pending' life stage"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Test 7: All seven life-stage keywords generate flags (parametrized)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("life_stage_value", [
+    "pre-liquidity event",
+    "succession",
+    "business sale",
+    "retirement",
+    "charitable foundation",
+    "property purchase",
+    "family office formation",
+])
+def test_all_seven_life_stage_keywords_generate_flags(life_stage_value: str) -> None:
+    """Each of the 7 required Req 13.5 keywords must generate at least one flag
+    when the need exceeds 20% of Tier-1 and LCR < 1.2.
+
+    Fixture: Tier-1 = USD 5,000,000; need = USD 2,000,000 (40%); lcr = 0.9;
+    due_from within 18 months of 2026-08-26.
+    """
+    flags = life_event_flags(
+        client_id="CL-TEST",
+        tier1_value=5_000_000.0,
+        lcr=0.9,
+        data=_make_data(
+            life_stage=life_stage_value,
+            needs=[{
+                "client_id": "CL-TEST",
+                "need_id": "CN-KWORD",
+                "description": f"{life_stage_value} related payment",
+                "currency": "USD",
+                "amount": 2_000_000.0,
+                "due_from": "2027-06-01",   # within 18 months
+                "due_to": "2027-07-31",
+            }],
+        ),
+        as_of=date(2026, 8, 26),
+    )
+
+    assert len(flags) >= 1, (
+        f"Expected at least one life-event flag for life_stage='{life_stage_value}', got none"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Test 8: Need beyond 18-month window generates no flag
+# ---------------------------------------------------------------------------
+
+def test_life_event_flag_not_raised_for_need_beyond_18_month_window() -> None:
+    """A need due after the 18-month look-forward window must not generate a flag.
+
+    due_from = 2028-05-01 is more than 18 months after 2026-08-26 (cutoff ≈ 2028-02-26).
+    """
+    flags = life_event_flags(
+        client_id="CL-TEST",
+        tier1_value=5_000_000.0,
+        lcr=0.9,
+        data=_make_data(
+            life_stage="Business sale pending",
+            needs=[{
+                "client_id": "CL-TEST",
+                "need_id": "CN-FUTURE",
+                "description": "Future business sale payment",
+                "currency": "USD",
+                "amount": 2_000_000.0,
+                "due_from": "2028-05-01",   # > 18 months from 2026-08-26
+                "due_to": "2028-06-30",
+            }],
+        ),
+        as_of=date(2026, 8, 26),
+    )
+
+    assert flags == [], (
+        f"Expected no flags for need beyond 18-month window, got {flags}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Test 9: Need below 20% threshold generates no flag
+# ---------------------------------------------------------------------------
+
+def test_life_event_flag_not_raised_when_need_below_20_pct_threshold() -> None:
+    """A need that is below 20% of Tier-1 must not generate a flag even if the
+    life_stage keyword matches and LCR < 1.2.
+
+    Setup:
+    - life_stage = "Succession planning"  (contains "succession" keyword)
+    - Tier-1 = USD 5,000,000; need = USD 500,000 (= 10% of Tier-1, below 20%)
+    - lcr = 0.8 (below 1.2 threshold)
+    """
+    flags = life_event_flags(
+        client_id="CL-TEST",
+        tier1_value=5_000_000.0,
+        lcr=0.8,
+        data=_make_data(
+            life_stage="Succession planning",
+            needs=[{
+                "client_id": "CL-TEST",
+                "need_id": "CN-SMALL",
+                "description": "Succession planning advisory fee",
+                "currency": "USD",
+                "amount": 500_000.0,   # 10% of Tier-1, below 20% threshold
+                "due_from": "2027-01-15",
+                "due_to": "2027-02-28",
+            }],
+        ),
+        as_of=date(2026, 8, 26),
+    )
+
+    assert flags == [], (
+        f"Expected no flags when need (500k) is below 20% of Tier-1 (5M), got {flags}"
+    )

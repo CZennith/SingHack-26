@@ -36,6 +36,10 @@ export default function App() {
   const [selectedClientId, setSelectedClientId] = useState<string>('');
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
+  // Book-wide scenario active banner state (Req 12.4, 12.7)
+  const [bookScenarioActive, setBookScenarioActive] = useState(false);
+  const [activeBookScenarioName, setActiveBookScenarioName] = useState<string | null>(null);
+
   useEffect(() => {
     let isMounted = true;
 
@@ -301,9 +305,36 @@ export default function App() {
 
             {/* Operational Workspace Content Stage */}
             <div className="px-6 sm:px-10 py-10 flex-1 max-w-6xl mx-auto w-full space-y-12">
+              {/* Amber banner: book-wide scenario active (Req 12.4, 12.7) */}
+              {bookScenarioActive && activeBookScenarioName && (
+                <div className="flex items-center justify-between px-4 py-3 bg-[#fdf8f0] text-[#9E6B20] border border-[#f4e4cc]">
+                  <div className="flex items-center gap-2.5 text-[12px]">
+                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#9E6B20]" />
+                    <span className="font-medium">{activeBookScenarioName}</span>
+                    <span className="text-[11px] text-[#b07a30]">
+                      · Leaderboard sorted by scenario impact
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBookScenarioActive(false);
+                      setActiveBookScenarioName(null);
+                    }}
+                    className="text-[10px] uppercase tracking-[0.12em] font-medium text-[#9E6B20] hover:text-[#7a5218] underline underline-offset-2 cursor-pointer"
+                  >
+                    Clear scenario
+                  </button>
+                </div>
+              )}
               {/* SECTION 01: Market & Portfolio Impact */}
               <MarketImpactSection
                 onSelectClientByName={handleSelectClientByName}
+                onRunBookScenario={() => {
+                  setSelectedClientId('');
+                  setCurrentView('stress-workbench');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
               />
 
               {/* SECTION 02: Priority Client Dossiers */}
@@ -469,6 +500,10 @@ export default function App() {
               setSelectedClientId(clientId);
               setCurrentView('stress-workbench');
               window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            onBookScenarioRun={(scenarioName) => {
+              setBookScenarioActive(true);
+              setActiveBookScenarioName(scenarioName);
             }}
           />
         )}

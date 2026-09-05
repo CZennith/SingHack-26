@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import type { UrgencyTrigger } from '../types/stressWorkbench';
+import type { LifeEventFlag, UrgencyTrigger } from '../types/stressWorkbench';
 
 // ---------------------------------------------------------------------------
 // Props
@@ -20,6 +20,7 @@ export interface UrgencyScoreBannerProps {
   projectedScore: number | null;
   projectedDelta: number | null;
   onScrollTo: (anchor: string) => void;
+  lifeEventFlags?: LifeEventFlag[];
 }
 
 // ---------------------------------------------------------------------------
@@ -69,6 +70,7 @@ export const UrgencyScoreBanner: React.FC<UrgencyScoreBannerProps> = ({
   projectedScore,
   projectedDelta,
   onScrollTo,
+  lifeEventFlags,
 }) => {
   const badgeClasses = getBadgeClasses(riskLevel);
   const showProjected =
@@ -161,6 +163,39 @@ export const UrgencyScoreBanner: React.FC<UrgencyScoreBannerProps> = ({
             </li>
           ))}
         </ul>
+      )}
+
+      {/* Life-event planning contextual indicators — Req 13.5 */}
+      {lifeEventFlags && lifeEventFlags.length > 0 && (
+        <div className="space-y-1" data-testid="life-event-flags-section">
+          {/* Section separator */}
+          <div className="pt-2 border-t border-[#e8e5e0]">
+            <span className="text-[10px] uppercase tracking-[0.14em] font-medium text-[#9E6B20] font-mono">
+              LIFE-EVENT PLANNING
+            </span>
+          </div>
+          {lifeEventFlags.map((flag, idx) => (
+            <div
+              key={idx}
+              className="px-3 py-2 bg-[#fdf8f0] text-[#9E6B20] border border-[#f4e4cc]"
+              data-testid={`life-event-flag-${idx}`}
+            >
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="text-[12px] font-medium leading-snug">
+                  {/* Calendar/flag icon area */}
+                  <span className="mr-1.5" aria-hidden="true">📅</span>
+                  {flag.description}
+                </span>
+                <span className="shrink-0 font-mono text-[11px] font-semibold">
+                  {flag.due_date}
+                </span>
+              </div>
+              <p className="text-[11px] mt-0.5 leading-snug opacity-80">
+                {flag.life_stage_note}
+              </p>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );

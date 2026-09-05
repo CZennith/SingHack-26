@@ -36,6 +36,9 @@ import { LombardLTVPanel } from './LombardLTVPanel';
 import { LookThroughPanel } from './LookThroughPanel';
 import { LiquidityCoveragePanel } from './LiquidityCoveragePanel';
 import { RMActionPanel } from './RMActionPanel';
+import { AuditTrailPanel } from './AuditTrailPanel';
+import { BookScenarioLeaderboard } from './BookScenarioLeaderboard';
+import { CallScriptModal } from './CallScriptModal';
 
 // ---------------------------------------------------------------------------
 // Props
@@ -48,6 +51,8 @@ export interface StressWorkbenchPageProps {
   allClients: ClientDossier[];
   onBack: () => void;
   onSelectClient: (clientId: string) => void;
+  /** Called after a book-wide scenario completes successfully (Req 12.4, 12.7) */
+  onBookScenarioRun?: (scenarioName: string) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -117,6 +122,7 @@ export const StressWorkbenchPage: React.FC<StressWorkbenchPageProps> = ({
   allClients,
   onBack,
   onSelectClient,
+  onBookScenarioRun,
 }) => {
   const activeClient = allClients.find((c) => c.id === clientId) ?? null;
 
@@ -150,8 +156,8 @@ export const StressWorkbenchPage: React.FC<StressWorkbenchPageProps> = ({
   const [macroShockError, setMacroShockError] = useState<string | null>(null);
 
   // Call script
-  const [callScript] = useState<string | null>(null);
-  const [isCallScriptModalOpen] = useState(false);
+  const [callScript, setCallScript] = useState<string | null>(null);
+  const [isCallScriptModalOpen, setIsCallScriptModalOpen] = useState(false);
 
   // Unreviewed navigation guard (Req 9.6)
   const [hasUnreviewedResult, setHasUnreviewedResult] = useState(false);
@@ -281,18 +287,50 @@ export const StressWorkbenchPage: React.FC<StressWorkbenchPageProps> = ({
         },
       });
       setBookScenarioResult(result);
+      // Notify parent that a book scenario completed (Req 12.4, 12.7)
+      onBookScenarioRun?.(result.scenario.label);
     } catch (err: unknown) {
       console.error('Book scenario failed:', err);
     } finally {
       setIsRunningBookScenario(false);
     }
-  }, [scenarioConfig]);
+  }, [scenarioConfig, onBookScenarioRun]);
+
+  // -------------------------------------------------------------------------
+  // Audit trail handlers — append entries returned from AuditTrailPanel (Req 9)
+  // -------------------------------------------------------------------------
+
+  const handleMarkReviewed = useCallback((entry: AuditEntry) => {
+    setAuditEntries((prev) => [...prev, entry]);
+    // Marking as reviewed clears the unreviewed guard (Req 9.6)
+    setHasUnreviewedResult(false);
+  }, []);
+
+  const handleMarkActioned = useCallback((entry: AuditEntry) => {
+    setAuditEntries((prev) => [...prev, entry]);
+    // Marking as actioned also clears the unreviewed guard (Req 9.6)
+    setHasUnreviewedResult(false);
+  }, []);
+
+  // -------------------------------------------------------------------------
+  // Call script handlers (Req 10)
+  // -------------------------------------------------------------------------
+
+  const handleOpenCallScript = useCallback(() => {
+    setIsCallScriptModalOpen(true);
+  }, []);
+
+  const handleCloseCallScript = useCallback(() => {
+    setIsCallScriptModalOpen(false);
+  }, []);
+
+  const handleCallScriptAudit = useCallback((entry: AuditEntry) => {
+    setAuditEntries((prev) => [...prev, entry]);
+  }, []);
 
   // Prevent unused variable warning — workbenchState is used for type-checking
   // and will be passed to sub-panels in later tasks.
   void workbenchState;
-  void auditEntries;
-  void setAuditEntries;
 
   // -------------------------------------------------------------------------
   // Render
@@ -340,15 +378,49 @@ export const StressWorkbenchPage: React.FC<StressWorkbenchPageProps> = ({
         {/* ------------------------------------------------------------------
             UrgencyScoreBanner — urgency score + projected delta (Req 11)
         ------------------------------------------------------------------ */}
-        <UrgencyScoreBanner
-          clientId={clientId ?? ''}
-          currentScore={0}
-          riskLevel="LOW"
-          triggers={[]}
-          projectedScore={null}
-          projectedDelta={null}
-          onScrollTo={() => {}}
-        />
+        {mode === 'client' && (
+          <UrgencyScoreBanner
+            clientId={clientId ?? ''}
+            currentScore={activeClient?.urgencyScore ?? 0}
+            riskLevel={activeClient?.riskLevel ?? 'LOW'}
+            triggers={
+              activeClient?.prioritizationTriggers
+                ? activeClient.prioritizationTriggers.map((t, i) => {
+                    // Triggers are stored as "Label (+pts)" strings, e.g. "LTV Pressure (+25)"
+                    const match = t.match(/^(.*?)\s*\(\+(\d+)\)$/);
+                    const label = match ? match[1].trim() : t;
+                    const points = match ? parseInt(match[2], 10) : 0;
+                    return {
+                      code: `trigger-${i}`,
+                      label,
+                      points,
+                      evidence_summary: label,
+                      module_anchor: '',
+                    };
+                  })
+                : []
+            }
+            projectedScore={
+              stressResult !== null && activeClient?.urgencyScore !== undefined
+                ? activeClient.urgencyScore + (stressResult.ltv_stress?.facilities?.some(
+                    (f) => f.scenario_ltv_pct !== null && f.scenario_ltv_pct >= f.margin_call_ltv_pct
+                  ) ? 20 : 0)
+                : null
+            }
+            projectedDelta={
+              stressResult !== null && activeClient?.urgencyScore !== undefined
+                ? (stressResult.ltv_stress?.facilities?.some(
+                    (f) => f.scenario_ltv_pct !== null && f.scenario_ltv_pct >= f.margin_call_ltv_pct
+                  ) ? 20 : 0)
+                : null
+            }
+            onScrollTo={(anchor) => {
+              if (!anchor) return;
+              const el = document.getElementById(anchor);
+              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }}
+          />
+        )}
 
         {/* ------------------------------------------------------------------
             ScenarioPicker — named scenario dropdown + shock table editor (Req 2)
@@ -435,38 +507,94 @@ export const StressWorkbenchPage: React.FC<StressWorkbenchPageProps> = ({
               onRetry={handleRun}
               hasRun={stressResult !== null}
             />
+
+            {/* Generate Call Script button — visible only after a stress run (Req 10.1) */}
+            {stressResult !== null && (
+              <div className="flex justify-end">
+                <button
+                  onClick={handleOpenCallScript}
+                  className="px-4 py-2 text-[11.5px] font-medium text-[#faf9f6] bg-[#2a2520] hover:bg-[#121212] transition-colors"
+                  aria-label="Generate call script for this stress result"
+                >
+                  Generate Call Script
+                </button>
+              </div>
+            )}
+
+            {/* Panel 6 — Audit Trail (Req 9) */}
+            <AuditTrailPanel
+              resultId={stressResult?.result_id ?? null}
+              clientId={clientId ?? ''}
+              scenarioName={stressResult?.scenario?.label ?? scenarioConfig.label}
+              auditEntries={auditEntries}
+              onMarkReviewed={handleMarkReviewed}
+              onMarkActioned={handleMarkActioned}
+            />
           </>
         )}
 
         {/* ------------------------------------------------------------------
-            BOOK-WIDE MODE: leaderboard placeholder (Req 12)
+            BOOK-WIDE MODE: leaderboard (Req 12)
         ------------------------------------------------------------------ */}
         {mode === 'book-wide' && (
-          <div
-            data-testid="book-scenario-leaderboard"
-            className="bg-white border border-[#e8e5e0] p-6 shadow-2xs space-y-3"
-          >
-            <div className="flex items-baseline gap-3 border-b border-[#e8e5e0] pb-3">
-              <span className="text-[10px] uppercase tracking-[0.14em] font-medium text-[#767676] font-mono">
-                SECTION 02 · SCENARIO IMPACT LEADERBOARD
-              </span>
-            </div>
-            {isRunningBookScenario ? (
-              <div className="space-y-2 animate-pulse">
-                {[...Array(6)].map((_, i) => (
-                  <div key={i} className={`h-4 bg-[#f4f3f0] rounded ${i === 5 ? 'w-3/4' : 'w-full'}`} />
-                ))}
+          <>
+            {isRunningBookScenario && (
+              <div
+                data-testid="book-scenario-leaderboard"
+                className="bg-white border border-[#e8e5e0] p-6 shadow-2xs space-y-3"
+              >
+                <div className="flex items-baseline gap-3 border-b border-[#e8e5e0] pb-3">
+                  <span className="text-[10px] uppercase tracking-[0.14em] font-medium text-[#767676] font-mono">
+                    SECTION 02 · SCENARIO IMPACT LEADERBOARD
+                  </span>
+                </div>
+                <div className="space-y-2 animate-pulse">
+                  {[...Array(6)].map((_, i) => (
+                    <div key={i} className={`h-4 bg-[#f4f3f0] rounded ${i === 5 ? 'w-3/4' : 'w-full'}`} />
+                  ))}
+                </div>
               </div>
-            ) : (
-              <p className="text-[12.5px] text-[#888888]">
-                {bookScenarioResult
-                  ? `Leaderboard ready — ${bookScenarioResult.clients.length} clients ranked.`
-                  : 'Select a scenario and click "Run Book Scenario" to see the impact leaderboard.'}
-              </p>
             )}
-          </div>
+
+            {!isRunningBookScenario && !bookScenarioResult && (
+              <div
+                data-testid="book-scenario-leaderboard"
+                className="bg-white border border-[#e8e5e0] p-6 shadow-2xs space-y-3"
+              >
+                <div className="flex items-baseline gap-3 border-b border-[#e8e5e0] pb-3">
+                  <span className="text-[10px] uppercase tracking-[0.14em] font-medium text-[#767676] font-mono">
+                    SECTION 02 · SCENARIO IMPACT LEADERBOARD
+                  </span>
+                </div>
+                <p className="text-[12.5px] text-[#888888]">
+                  Select a scenario and click &ldquo;Run Book Scenario&rdquo; to see the impact leaderboard.
+                </p>
+              </div>
+            )}
+
+            {!isRunningBookScenario && bookScenarioResult && (
+              <div data-testid="book-scenario-leaderboard">
+                <BookScenarioLeaderboard
+                  result={bookScenarioResult}
+                  onDrillDown={(clientId) => onSelectClient(clientId)}
+                />
+              </div>
+            )}
+          </>
         )}
       </div>
+
+      {/* ── CallScriptModal — rendered at root outside the max-w-6xl container (Req 10) */}
+      {isCallScriptModalOpen && stressResult !== null && (
+        <CallScriptModal
+          isOpen={isCallScriptModalOpen}
+          onClose={handleCloseCallScript}
+          stressResult={stressResult}
+          clientName={activeClient?.name ?? clientId ?? 'Client'}
+          riskProfile={activeClient?.riskLevel ?? 'MEDIUM'}
+          onAuditEntry={handleCallScriptAudit}
+        />
+      )}
     </div>
   );
 };
