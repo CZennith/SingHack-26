@@ -20,6 +20,23 @@ interface ClientDetailPageProps {
   allClients: ClientDossier[];
 }
 
+const AiGeneratingPlaceholder: React.FC<{ label: string; compact?: boolean }> = ({ label, compact = false }) => (
+  <div className={`ai-thinking relative overflow-hidden border border-[#e4e7e5] bg-[#fbfcfb] ${compact ? 'mt-5 px-4 py-4' : 'px-5 py-8 sm:px-7 sm:py-11'}`}>
+    <div className="ai-thinking-glow absolute left-1/2 top-1/2 h-32 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#cfe4df]/45 blur-3xl" />
+    <div className={`relative ${compact ? 'flex items-center gap-4' : 'mx-auto max-w-sm text-center'}`}>
+      <div className={compact ? 'shrink-0' : ''}>
+        <p className="ai-thinking-label text-[10px] font-medium uppercase tracking-[0.18em] text-[#477a71]">Synthesising insight</p>
+        <p className="mt-2 text-[12.5px] leading-relaxed text-[#6b716f]">Generating {label} from the latest client data</p>
+      </div>
+      {!compact && <div className="mt-6 space-y-2.5" aria-label="Generating">
+        <div className="ai-thinking-line h-px w-full bg-[#9ec8be]" />
+        <div className="ai-thinking-line ai-thinking-line-delayed h-px w-[78%] bg-[#b7d8d0]" />
+        <div className="ai-thinking-line ai-thinking-line-late h-px w-[91%] bg-[#d0e4df]" />
+      </div>}
+    </div>
+  </div>
+);
+
 export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
   client,
   onBack,
@@ -31,13 +48,25 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
   const currentIndex = allClients.findIndex((c) => c.id === client.id);
   const prevClient = currentIndex > 0 ? allClients[currentIndex - 1] : null;
   const nextClient = currentIndex < allClients.length - 1 ? allClients[currentIndex + 1] : null;
+  const points = client.portfolio.trajectory.points;
+  const trajectoryPath = points.length > 1
+    ? points.map((point, index) => {
+        const values = points.map((item) => item.value);
+        const min = Math.min(...values);
+        const max = Math.max(...values);
+        const x = 10 + (480 * index) / (points.length - 1);
+        const y = max === min ? 60 : 18 + ((max - point.value) / (max - min)) * 77;
+        return `${index === 0 ? 'M' : 'L'} ${x} ${y}`;
+      }).join(' ')
+    : '';
+  const topHoldingsPercent = client.portfolio.topHoldings.reduce((total, holding) => total + holding.percentage, 0);
 
   return (
     <div id="client-detail-view" className="w-full min-h-screen bg-[#faf9f6]">
       {/* Top Floating RM Profile Tag (as in Image 3 top right) */}
       <div className="hidden md:flex fixed top-4 right-8 z-20 items-center gap-3 bg-[#faf9f6]/90 backdrop-blur-xs py-1 px-2 border border-[#e8e5e0]">
         <div className="text-right">
-          <div className="text-[12px] font-medium text-[#121212] leading-none">Priscilla Ong</div>
+          <div className="text-[12px] font-medium text-[#121212] leading-none">{client.relationshipManager?.name ?? 'Relationship manager pending'}</div>
           <div className="text-[10px] text-[#767676] mt-0.5 leading-none">Relationship Manager</div>
         </div>
         <div className="w-7 h-7 rounded-full border border-[#dedbd5] bg-white flex items-center justify-center text-[#121212] shadow-2xs">
@@ -110,7 +139,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
             </span>
             <span className="text-[11px] text-[#55534e] flex items-center gap-1.5 font-mono">
               <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
-              Fixture snapshot · 26 Aug 2026
+              Snapshot · {client.asOf ?? 'pending'}
             </span>
           </div>
 
@@ -121,6 +150,18 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
             <p className="text-[14px] leading-[23px] text-[#55534e] font-normal max-w-4xl">
               {client.about.bio}
             </p>
+
+            {client.profileSummary?.generatedAt === 'Pending' ? (
+              <AiGeneratingPlaceholder label="a client context summary" compact />
+            ) : client.profileSummary && (
+              <div className="mt-5 border-l-2 border-[#2c6e6a] bg-[#f9f8f5] px-4 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-[12.5px] font-medium text-[#121212]">{client.profileSummary.title}</span>
+                  <span className="text-[10px] text-[#8c887f] font-mono">AI-generated · {client.profileSummary.generatedAt}</span>
+                </div>
+                <p className="mt-1 text-[12.5px] leading-relaxed text-[#55534e]">{client.profileSummary.summary}</p>
+              </div>
+            )}
 
             <div className="flex flex-wrap items-center gap-4 mt-6 pt-5 border-t border-[#e8e5e0] text-[12px] text-[#666666]">
               <span className="inline-flex items-center gap-1.5">
@@ -148,7 +189,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
               SECTION 02 · CUSTODY &amp; LIQUIDITY
             </span>
             <span className="text-[11px] text-[#666666] font-mono">
-              Valuation as of 16:00 EST
+              Valuation as of {client.valuationAsOf ?? client.asOf ?? 'pending'}
             </span>
           </div>
 
@@ -298,32 +339,32 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
                     </defs>
 
                     {/* Area fill */}
-                    <path
-                      d="M 10 70 C 60 70, 90 65, 140 68 C 180 70, 210 95, 250 95 C 290 95, 330 65, 380 45 C 430 25, 460 20, 490 18 L 490 115 L 10 115 Z"
+                    {trajectoryPath && <path
+                      d={`${trajectoryPath} L 490 115 L 10 115 Z`}
                       fill={`url(#curveGrad-${client.id})`}
-                    />
+                    />}
 
                     {/* Curve stroke */}
-                    <path
-                      d="M 10 70 C 60 70, 90 65, 140 68 C 180 70, 210 95, 250 95 C 290 95, 330 65, 380 45 C 430 25, 460 20, 490 18"
+                    {trajectoryPath && <path
+                      d={trajectoryPath}
                       fill="none"
                       stroke="#1f1d1a"
                       strokeLinecap="round"
                       strokeWidth="1.75"
-                    />
+                    />}
 
                     {/* Trough Marker */}
-                    <circle
+                    {trajectoryPath && <circle
                       cx="250"
                       cy="95"
                       fill="#ffffff"
                       r="3.5"
                       stroke="#b33939"
                       strokeWidth="1.5"
-                    />
+                    />}
 
                     {/* Endpoint Marker */}
-                    <circle cx="490" cy="18" fill="#1f1d1a" r="3" />
+                    {trajectoryPath && <circle cx="490" cy="18" fill="#1f1d1a" r="3" />}
                   </svg>
 
                   {/* Chart labels beneath */}
@@ -347,7 +388,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
                   <span className="text-[10px] tracking-[0.12em] uppercase font-semibold text-[#55534e] font-mono">
                     TOP PORTFOLIO HOLDINGS
                   </span>
-                  <span className="text-[11px] text-[#8c887f] font-mono">77.9% of Total</span>
+                  <span className="text-[11px] text-[#8c887f] font-mono">{topHoldingsPercent.toFixed(1)}% of Total</span>
                 </div>
 
                 <div className="divide-y divide-[#f0eee9]">
@@ -377,77 +418,106 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
           </div>
         </section>
 
-        {/* SECTION 03 · SYNTHESISED ANALYSIS */}
+        {/* SECTION 03 · INTELLIGENT PORTFOLIO EXPLANATION */}
         <section className="space-y-3">
           <div className="border-b border-[#e8e5e0] pb-2">
             <span className="text-[10px] tracking-[0.16em] uppercase font-semibold text-[#8c887f]">
-              SECTION 03 · SYNTHESISED ANALYSIS
+              SECTION 03 · PORTFOLIO EXPLANATION
             </span>
           </div>
 
-          {/* Accent Border Synthesis Card */}
+          {client.portfolioExplanation.generatedAt === 'Pending' ? (
+            <AiGeneratingPlaceholder label="the portfolio explanation" />
+          ) : (
+          /* Accent Border Synthesis Card */
           <div className="bg-white border border-[#e8e5e0] border-l-[3px] border-l-[#121212] p-6 sm:p-7 space-y-5 shadow-2xs">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="text-[#121212] text-[15px]">✦</span>
                 <h3 className="font-serif text-[20px] text-[#121212] font-normal">
-                  {client.synthesisedAnalysis.headline}
+                  {client.portfolioExplanation.title}
                 </h3>
               </div>
               <span className="text-[11px] text-[#8c887f] font-mono">
-                Automated Synthesis · {client.synthesisedAnalysis.syncTime}
+                AI-generated · {client.portfolioExplanation.generatedAt}
               </span>
             </div>
 
             <p className="text-[14px] leading-[23px] text-[#121212] font-normal max-w-4xl">
-              {client.synthesisedAnalysis.narrative}
+              {client.portfolioExplanation.overview}
             </p>
 
-            {/* Sub-cards: Why it Matters & Monitor */}
+            {/* Evidence and monitoring points */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
-              <div className="bg-[#f9f8f5] border border-[#e8e5e0] p-4">
-                <div className="text-[10px] tracking-[0.12em] uppercase font-semibold text-[#55534e] mb-1.5 font-mono">
-                  WHY IT MATTERS
+              <div className="bg-[#f9f8f5] border border-[#e8e5e0] p-4 space-y-4">
+                <div className="text-[10px] tracking-[0.12em] uppercase font-semibold text-[#55534e] pb-2 border-b border-[#e8e5e0] font-mono">
+                  WHAT MOVED & WHY
                 </div>
-                <p className="text-[12.5px] leading-relaxed text-[#55534e]">
-                  {client.synthesisedAnalysis.whyItMatters}
-                </p>
+                <ul className="space-y-3.5 text-[12.5px] leading-relaxed text-[#55534e]">
+                  {client.portfolioExplanation.whatMovedAndWhy.map((point, index) => (
+                    <li key={`${point.title}-${index}`} className="flex items-start gap-2.5">
+                      <span className="text-[#55534e] text-xs mt-0.5 font-bold">•</span>
+                      <span>
+                        <strong className="font-medium text-[#121212]">{point.title}: </strong>
+                        {point.description}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
               </div>
 
-              <div className="bg-[#f9f8f5] border border-[#e8e5e0] p-4">
-                <div className="text-[10px] tracking-[0.12em] uppercase font-semibold text-[#55534e] mb-1.5 font-mono">
-                  MONITOR
+              <div className="bg-[#f9f8f5] border border-[#e8e5e0] p-4 space-y-4">
+                <div className="text-[10px] tracking-[0.12em] uppercase font-semibold text-[#55534e] pb-2 border-b border-[#e8e5e0] font-mono">
+                  EVENTS TO MONITOR
                 </div>
-                <p className="text-[12.5px] leading-relaxed text-[#55534e]">
-                  {client.synthesisedAnalysis.monitor}
-                </p>
+                <ul className="space-y-3.5 text-[12.5px] leading-relaxed text-[#55534e]">
+                  {client.portfolioExplanation.whatToWatch.map((point, index) => (
+                    <li key={`${point.title}-${index}`} className="flex items-start gap-2.5">
+                      <span className="text-[#55534e] text-xs mt-0.5 font-bold">•</span>
+                      <span>
+                        <strong className="font-medium text-[#121212]">{point.title}: </strong>
+                        {point.description}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
               </div>
             </div>
           </div>
+          )}
         </section>
 
-        {/* SECTION 04 · STRATEGIC MATRIX (Risks & Opportunities) */}
+        {/* SECTION 04 · PROACTIVE ADVICE (Risks & Opportunities) */}
         <section className="space-y-4">
           <div className="border-b border-[#e8e5e0] pb-2">
             <span className="text-[10px] tracking-[0.16em] uppercase font-semibold text-[#8c887f]">
-              SECTION 04 · STRATEGIC MATRIX
+              SECTION 04 · PROACTIVE ADVICE
             </span>
           </div>
 
-          <h2 className="font-serif text-[21px] text-[#121212] font-normal">
-            Risks &amp; Opportunities
-          </h2>
+          {client.advisory.generatedAt === 'Pending' ? (
+            <AiGeneratingPlaceholder label="risks, opportunities, and next steps" />
+          ) : (
+          <div className="bg-white border border-[#e8e5e0] border-l-[3px] border-l-[#121212] p-6 sm:p-7 space-y-5 shadow-2xs">
+            <div className="flex items-center justify-between gap-4">
+              <h2 className="font-serif text-[21px] text-[#121212] font-normal">
+                Risks, Opportunities &amp; Next Steps
+              </h2>
+              <span className="text-[10px] text-[#8c887f] font-mono shrink-0">
+                AI-generated · {client.advisory.generatedAt}
+              </span>
+            </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
             {/* Risks Column */}
-            <div className="bg-white border border-[#e8e5e0] p-6 space-y-4 shadow-2xs">
+            <div className="bg-[#f9f8f5] border border-[#e8e5e0] p-4 space-y-4">
               <div className="flex items-center gap-2 pb-2 border-b border-[#e8e5e0]">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#b33939] inline-block" />
                 <h3 className="font-serif text-[17px] text-[#121212] font-normal">Risks</h3>
               </div>
 
               <ul className="space-y-3.5 text-[12.5px] leading-relaxed text-[#55534e]">
-                {client.strategicMatrix.risks.map((risk, idx) => (
+                {client.advisory.risks.map((risk, idx) => (
                   <li key={idx} className="flex items-start gap-2.5">
                     <span className="text-[#b33939] text-xs mt-0.5 font-bold">•</span>
                     <span>
@@ -460,7 +530,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
             </div>
 
             {/* Opportunities Column */}
-            <div className="bg-white border border-[#e8e5e0] p-6 space-y-4 shadow-2xs">
+            <div className="bg-[#f9f8f5] border border-[#e8e5e0] p-4 space-y-4">
               <div className="flex items-center gap-2 pb-2 border-b border-[#e8e5e0]">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#2c6e6a] inline-block" />
                 <h3 className="font-serif text-[17px] text-[#121212] font-normal">
@@ -469,7 +539,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
               </div>
 
               <ul className="space-y-3.5 text-[12.5px] leading-relaxed text-[#55534e]">
-                {client.strategicMatrix.opportunities.map((opp, idx) => (
+                {client.advisory.opportunities.map((opp, idx) => (
                   <li key={idx} className="flex items-start gap-2.5">
                     <span className="text-[#2c6e6a] text-xs mt-0.5 font-bold">•</span>
                     <span>
@@ -480,7 +550,9 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
                 ))}
               </ul>
             </div>
+            </div>
           </div>
+          )}
         </section>
 
         {/* Bottom Action Ribbon / Document Footer */}

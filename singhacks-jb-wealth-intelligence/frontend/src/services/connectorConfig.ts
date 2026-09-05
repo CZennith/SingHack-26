@@ -7,7 +7,9 @@ export interface ConnectorConfig {
 }
 
 export const connectorConfig: ConnectorConfig = {
-  mode: import.meta.env.VITE_CONNECTOR_MODE === 'live' ? 'live' : 'mock',
-  apiBaseUrl: (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, ''),
+  mode: 'live',
+  // In development Vite proxies /api to the local FastAPI server. Deployments
+  // can set VITE_API_BASE_URL to their backend origin instead.
+  apiBaseUrl: (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, ''),
   dataAsOf: import.meta.env.VITE_DATA_AS_OF || '2026-08-26',
 };

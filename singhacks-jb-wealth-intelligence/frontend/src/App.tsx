@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Sidebar,
 } from './components/Sidebar';
@@ -16,17 +16,22 @@ import {
 import {
   currentRM,
   executiveBriefing,
-  placeholderClients,
 } from './data/placeholderData';
 import { ClientDossier, RiskSeverity } from './types';
+import { fetchClientDossier, fetchClientInsights, fetchClients } from './services/clientsApi';
 import { FileText, SlidersHorizontal, Sparkles } from 'lucide-react';
 
 export default function App() {
+  const [clients, setClients] = useState<ClientDossier[]>([]);
+  const [clientLoadError, setClientLoadError] = useState<string | null>(null);
+  const [dossierLoadError, setDossierLoadError] = useState<string | null>(null);
+  const [insightsLoadError, setInsightsLoadError] = useState<string | null>(null);
+  const [isDossierLoading, setIsDossierLoading] = useState(false);
   // Navigation & View State
   const [currentView, setCurrentView] = useState<'overview' | 'clients' | 'client-detail'>(
     'overview'
   );
-  const [selectedClientId, setSelectedClientId] = useState<string>('ravi-chandrasekaran');
+  const [selectedClientId, setSelectedClientId] = useState<string>('');
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   // Search & Filter State
@@ -46,6 +51,75 @@ export default function App() {
   const [isEmergencyFreezeOpen, setIsEmergencyFreezeOpen] = useState(false);
   const [isNewOrderOpen, setIsNewOrderOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    fetchClients(controller.signal)
+      .then((loadedClients) => {
+        setClients(loadedClients);
+        setSelectedClientId((currentId) =>
+          loadedClients.some((client) => client.id === currentId)
+            ? currentId
+            : (loadedClients[0]?.id ?? currentId),
+        );
+      })
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === 'AbortError') return;
+        setClientLoadError(
+          error instanceof Error ? error.message : 'Unable to load client profiles.',
+        );
+      });
+
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    if (currentView !== 'client-detail' || !selectedClientId) return;
+    const controller = new AbortController();
+    setIsDossierLoading(true);
+    setDossierLoadError(null);
+    setInsightsLoadError(null);
+
+    // Factual portfolio data is on the critical rendering path; generated
+    // insights are not. Start both requests together, but render the dossier
+    // as soon as it arrives instead of waiting for the LLM response.
+    fetchClientDossier(selectedClientId, controller.signal)
+      .then((dossier) => {
+        setClients((previous) => previous.map((client) =>
+          client.id === selectedClientId
+            ? {
+                ...client,
+                ...dossier,
+                // The factual endpoint intentionally returns null for AI
+                // fields. Keep the loading placeholders until insights arrive.
+                profileSummary: dossier.profileSummary ?? client.profileSummary,
+                portfolioExplanation:
+                  dossier.portfolioExplanation ?? client.portfolioExplanation,
+                advisory: dossier.advisory ?? client.advisory,
+              }
+            : client,
+        ));
+      })
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === 'AbortError') return;
+        setDossierLoadError(error instanceof Error ? error.message : 'Unable to load client dossier.');
+      })
+      .finally(() => setIsDossierLoading(false));
+
+    fetchClientInsights(selectedClientId, controller.signal)
+      .then((insights) => {
+        setClients((previous) => previous.map((client) =>
+          client.id === selectedClientId ? { ...client, ...insights } : client,
+        ));
+      })
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === 'AbortError') return;
+        setInsightsLoadError(error instanceof Error ? error.message : 'Unable to load AI insights.');
+      });
+
+    return () => controller.abort();
+  }, [currentView, selectedClientId]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -74,7 +148,7 @@ export default function App() {
 
   // Select client by name (e.g. from affected accounts pills)
   const handleSelectClientByName = (name: string) => {
-    const found = placeholderClients.find(
+    const found = clients.find(
       (c) =>
         c.name.toLowerCase().includes(name.toLowerCase()) ||
         name.toLowerCase().includes(c.name.toLowerCase()) ||
@@ -92,14 +166,13 @@ export default function App() {
   // Current client for detail view
   const currentClient = useMemo(() => {
     return (
-      placeholderClients.find((c) => c.id === selectedClientId) ||
-      placeholderClients[0]
+      clients.find((c) => c.id === selectedClientId) || clients[0]
     );
-  }, [selectedClientId]);
+  }, [clients, selectedClientId]);
 
   // Filtered priority clients for Section 02
   const filteredPriorityClients = useMemo(() => {
-    return placeholderClients.filter((c) => {
+    return clients.filter((c) => {
       const matchesSearch =
         searchQuery === '' ||
         c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -112,7 +185,7 @@ export default function App() {
 
       return matchesSearch && matchesRisk;
     });
-  }, [searchQuery, selectedRiskFilter]);
+  }, [clients, searchQuery, selectedRiskFilter]);
 
   return (
     <div className="min-h-screen bg-[#faf9f6] text-[#121212] font-sans antialiased flex flex-col selection:bg-neutral-900 selection:text-[#faf9f6]">
@@ -133,7 +206,7 @@ export default function App() {
         }}
         mobileOpen={mobileSidebarOpen}
         onCloseMobile={() => setMobileSidebarOpen(false)}
-        clientCount={placeholderClients.length}
+        clientCount={clients.length}
       />
 
       {/* 2. Docked Top Header */}
@@ -150,6 +223,11 @@ export default function App() {
 
       {/* 3. Main Stage Content */}
       <main className="lg:pl-60 pt-14 w-full min-h-screen flex flex-col">
+        {clientLoadError && (
+          <div className="lg:ml-0 mx-6 sm:mx-10 mt-5 border border-amber-200 bg-amber-50 px-4 py-3 text-[12px] text-amber-900">
+            Could not refresh client profiles from the backend: {clientLoadError} Showing the local preview instead.
+          </div>
+        )}
         {/* VIEW 1: OVERVIEW / DASHBOARD (Image 1) */}
         {currentView === 'overview' && (
           <div className="w-full flex-1">
@@ -240,7 +318,7 @@ export default function App() {
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() =>
-                        setExpandedCardIds(new Set(placeholderClients.map((c) => c.id)))
+                        setExpandedCardIds(new Set(clients.map((c) => c.id)))
                       }
                       className="hover:text-[#121212] underline underline-offset-4"
                     >
@@ -293,7 +371,7 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => {
-                      setActiveBriefClient(placeholderClients[0]);
+                      setActiveBriefClient(clients[0] ?? null);
                       setIsBriefModalOpen(true);
                     }}
                     className="px-4 py-2 bg-[#121212] text-[#faf9f6] hover:bg-neutral-800 text-[10px] font-medium uppercase tracking-[0.14em] transition-colors flex items-center gap-2 cursor-pointer"
@@ -321,27 +399,32 @@ export default function App() {
 
         {/* VIEW 2: CLIENT DETAIL SCREEN (Image 3) */}
         {currentView === 'client-detail' && (
-          <ClientDetailPage
-            client={currentClient}
-            onBack={() => {
-              setCurrentView('overview');
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
-            onPrepareBrief={(client) => {
-              setActiveBriefClient(client);
-              setIsBriefModalOpen(true);
-            }}
-            onViewSourceData={() => setIsSourceDataModalOpen(true)}
-            onSelectAnotherClient={handleSelectClient}
-            allClients={placeholderClients}
-          />
+          <>
+            {isDossierLoading && <div className="mx-6 sm:mx-10 mt-5 text-[12px] text-[#666666]">Loading client dossier and advisory insights…</div>}
+            {dossierLoadError && <div className="mx-6 sm:mx-10 mt-5 border border-amber-200 bg-amber-50 px-4 py-3 text-[12px] text-amber-900">Could not refresh this dossier: {dossierLoadError}</div>}
+            {insightsLoadError && <div className="mx-6 sm:mx-10 mt-5 border border-amber-200 bg-amber-50 px-4 py-3 text-[12px] text-amber-900">Could not refresh AI insights: {insightsLoadError}</div>}
+            {currentClient && <ClientDetailPage
+              client={currentClient}
+              onBack={() => {
+                setCurrentView('overview');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              onPrepareBrief={(client) => {
+                setActiveBriefClient(client);
+                setIsBriefModalOpen(true);
+              }}
+              onViewSourceData={() => setIsSourceDataModalOpen(true)}
+              onSelectAnotherClient={handleSelectClient}
+              allClients={clients}
+            />}
+          </>
         )}
 
         {/* VIEW 3: FULL CLIENTS LIST DIRECTORY */}
         {currentView === 'clients' && (
           <div className="px-6 sm:px-10 py-10 max-w-6xl mx-auto w-full">
             <ClientsListView
-              clients={placeholderClients}
+              clients={clients}
               onSelectClient={handleSelectClient}
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
@@ -372,7 +455,7 @@ export default function App() {
       <NewOrderModal
         isOpen={isNewOrderOpen}
         onClose={() => setIsNewOrderOpen(false)}
-        clients={placeholderClients}
+        clients={clients}
         onOrderPlaced={(name, type) => {
             showToast(`Prototype action recorded for ${name} (${type})`);
         }}

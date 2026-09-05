@@ -84,6 +84,9 @@ export interface ClientDossier {
   summary: string;
   tags: string[];
   suggestedNextStep: string;
+  asOf?: string;
+  valuationAsOf?: string;
+  relationshipManager?: { name: string; title?: string };
   
   // Detailed client profile fields (for Image 3 client page)
   about: {
@@ -106,14 +109,20 @@ export interface ClientDossier {
     topHoldings: PortfolioHolding[];
     remainingHoldingsNote: string;
   };
-  synthesisedAnalysis: {
-    syncTime: string;
-    headline: string;
-    narrative: string;
-    whyItMatters: string;
-    monitor: string;
+  profileSummary?: {
+    generatedAt: string;
+    title: string;
+    summary: string;
   };
-  strategicMatrix: {
+  portfolioExplanation: {
+    generatedAt: string;
+    title: string;
+    overview: string;
+    whatMovedAndWhy: StrategicPoint[];
+    whatToWatch: StrategicPoint[];
+  };
+  advisory: {
+    generatedAt: string;
     risks: StrategicPoint[];
     opportunities: StrategicPoint[];
   };

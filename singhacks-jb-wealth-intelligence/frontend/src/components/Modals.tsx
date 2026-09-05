@@ -28,10 +28,10 @@ SUGGESTED NEXT STEP:
 ${client.suggestedNextStep}
 
 KEY RISKS:
-${client.strategicMatrix.risks.map((r) => `- ${r.title}: ${r.description}`).join('\n')}
+${client.advisory.risks.map((r) => `- ${r.title}: ${r.description}`).join('\n')}
 
 OPPORTUNITIES:
-${client.strategicMatrix.opportunities.map((o) => `- ${o.title}: ${o.description}`).join('\n')}
+${client.advisory.opportunities.map((o) => `- ${o.title}: ${o.description}`).join('\n')}
 `;
     navigator.clipboard?.writeText?.(text);
     setCopied(true);
@@ -90,7 +90,7 @@ ${client.strategicMatrix.opportunities.map((o) => `- ${o.title}: ${o.description
               <div className="p-3 bg-[#faf9f6] border border-[#e8e5e0]">
                 <div className="font-medium text-[#7A1C28] mb-1">Key Vulnerabilities</div>
                 <ul className="space-y-1 text-[#555555]">
-                  {client.strategicMatrix.risks.slice(0, 2).map((r, i) => (
+                  {client.advisory.risks.slice(0, 2).map((r, i) => (
                     <li key={i} className="list-disc ml-3 text-[11.5px]">
                       {r.title}
                     </li>
@@ -101,7 +101,7 @@ ${client.strategicMatrix.opportunities.map((o) => `- ${o.title}: ${o.description
               <div className="p-3 bg-[#faf9f6] border border-[#e8e5e0]">
                 <div className="font-medium text-[#2c6e6a] mb-1">Target Solutions</div>
                 <ul className="space-y-1 text-[#555555]">
-                  {client.strategicMatrix.opportunities.slice(0, 2).map((o, i) => (
+                  {client.advisory.opportunities.slice(0, 2).map((o, i) => (
                     <li key={i} className="list-disc ml-3 text-[11.5px]">
                       {o.title}
                     </li>
