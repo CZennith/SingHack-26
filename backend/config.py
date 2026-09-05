@@ -1,8 +1,7 @@
 """Runtime configuration for local/private and preview/demo modes.
 
-The current API exposes only a health function, so no database is opened by
-the deployment. Future database-backed functions should use this configuration
-and open ``wealth_db_path`` with DuckDB's read-only option.
+Database-backed API functions use this configuration and open ``wealth_db_path``
+with DuckDB's read-only option. Demo mode remains the safe default.
 """
 
 from __future__ import annotations

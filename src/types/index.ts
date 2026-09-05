@@ -76,10 +76,11 @@ export interface ClientDossier {
   ref: string;
   name: string;
   initials: string;
-  tier: 'UHNW' | 'HNW';
+  tier: string;
   mandate: string;
   aum: string;
-  riskLevel: RiskSeverity;
+  riskLevel: RiskSeverity | null;
+  riskProfile?: string | null;
   headlineIssue: string;
   summary: string;
   tags: string[];
@@ -99,8 +100,8 @@ export interface ClientDossier {
     cashLiquidityPercent: string;
     cashLiquiditySubtext: string;
     borrowingUtilisation: string;
-    borrowingLtvPercent: number;
-    borrowingStatus: 'ELEVATED' | 'CRITICAL' | 'NORMAL';
+    borrowingLtvPercent: number | null;
+    borrowingStatus: string;
     allocation: AssetAllocationItem[];
     trajectory: TrajectoryConfig;
     topHoldings: PortfolioHolding[];

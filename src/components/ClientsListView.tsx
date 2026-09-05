@@ -7,6 +7,7 @@ interface ClientsListViewProps {
   onSelectClient: (clientId: string) => void;
   searchQuery: string;
   onSearchChange: (q: string) => void;
+  riskFilteringAvailable?: boolean;
 }
 
 export const ClientsListView: React.FC<ClientsListViewProps> = ({
@@ -14,6 +15,7 @@ export const ClientsListView: React.FC<ClientsListViewProps> = ({
   onSelectClient,
   searchQuery,
   onSearchChange,
+  riskFilteringAvailable = true,
 }) => {
   const [selectedRisk, setSelectedRisk] = useState<RiskSeverity | 'ALL'>('ALL');
 
@@ -24,7 +26,7 @@ export const ClientsListView: React.FC<ClientsListViewProps> = ({
       c.mandate.toLowerCase().includes(searchQuery.toLowerCase()) ||
       c.headlineIssue.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchesRisk = selectedRisk === 'ALL' || c.riskLevel === selectedRisk;
+    const matchesRisk = !riskFilteringAvailable || selectedRisk === 'ALL' || c.riskLevel === selectedRisk;
     return matchesSearch && matchesRisk;
   });
 
@@ -44,7 +46,7 @@ export const ClientsListView: React.FC<ClientsListViewProps> = ({
 
         {/* Filter Controls */}
         <div className="flex items-center gap-1.5 flex-wrap">
-          {(['ALL', 'CRITICAL', 'HIGH', 'MEDIUM'] as const).map((r) => (
+          {riskFilteringAvailable ? (['ALL', 'CRITICAL', 'HIGH', 'MEDIUM'] as const).map((r) => (
             <button
               key={r}
               onClick={() => setSelectedRisk(r)}
@@ -56,7 +58,7 @@ export const ClientsListView: React.FC<ClientsListViewProps> = ({
             >
               {r}
             </button>
-          ))}
+          )) : <span className="text-[11px] font-mono text-[#888888]">Risk filtering unavailable</span>}
         </div>
       </div>
 
@@ -100,7 +102,7 @@ export const ClientsListView: React.FC<ClientsListViewProps> = ({
                       isCritical ? 'text-[#7A1C28] font-medium' : 'text-[#555555]'
                     }`}
                   >
-                    {client.headlineIssue}
+                    {client.headlineIssue || 'No priority finding calculated'}
                   </p>
                 </div>
               </div>
@@ -112,7 +114,7 @@ export const ClientsListView: React.FC<ClientsListViewProps> = ({
                     {client.aum}
                   </div>
                   <div className="text-[11px] text-[#888888] font-mono">
-                    LTV: {client.portfolio.borrowingLtvPercent}%
+                    LTV: {client.portfolio.borrowingLtvPercent === null ? 'Not calculated' : `${client.portfolio.borrowingLtvPercent}%`}
                   </div>
                 </div>
 
@@ -126,7 +128,7 @@ export const ClientsListView: React.FC<ClientsListViewProps> = ({
                         : 'bg-[#faf9f6] text-[#666666] border-[#dedbd5]'
                     }`}
                   >
-                    {client.riskLevel}
+                    {client.riskLevel || 'NOT CALCULATED'}
                   </span>
 
                   <ArrowRight className="w-4 h-4 text-[#888888] group-hover:text-[#121212] group-hover:translate-x-1 transition-all" />

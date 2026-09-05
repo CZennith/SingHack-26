@@ -19,14 +19,25 @@ import {
   placeholderClients,
 } from './data/placeholderData';
 import { ClientDossier, RiskSeverity } from './types';
-import { FileText, SlidersHorizontal, Sparkles } from 'lucide-react';
+import { FileText, Sparkles } from 'lucide-react';
+import { WealthDataProvider, useWealthData } from './services/WealthDataContext';
+import { toClientDossier } from './services/viewModels';
+import { SnapshotDateSelector } from './components/SnapshotDateSelector';
 
-export default function App() {
+function AppContent() {
+  const wealthData = useWealthData();
+  const {
+    mode, asOfDate, comparisonDate, periodStart, periodEnd, clients: liveClients,
+    selectedClientId: liveSelectedClientId, setSelectedClientId: setLiveSelectedClientId,
+    snapshot, exposure, marketContext, loading, error, dateError,
+  } = wealthData;
+  const isLive = mode === 'live';
+
   // Navigation & View State
   const [currentView, setCurrentView] = useState<'overview' | 'clients' | 'client-detail'>(
     'overview'
   );
-  const [selectedClientId, setSelectedClientId] = useState<string>('ravi-chandrasekaran');
+  const [fixtureSelectedClientId, setFixtureSelectedClientId] = useState<string>('ravi-chandrasekaran');
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   // Search & Filter State
@@ -67,14 +78,15 @@ export default function App() {
 
   // Select client to navigate to their dedicated page (Image 3)
   const handleSelectClient = (clientId: string) => {
-    setSelectedClientId(clientId);
+    if (isLive) setLiveSelectedClientId(clientId);
+    else setFixtureSelectedClientId(clientId);
     setCurrentView('client-detail');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   // Select client by name (e.g. from affected accounts pills)
   const handleSelectClientByName = (name: string) => {
-    const found = placeholderClients.find(
+    const found = activeClients.find(
       (c) =>
         c.name.toLowerCase().includes(name.toLowerCase()) ||
         name.toLowerCase().includes(c.name.toLowerCase()) ||
@@ -89,17 +101,26 @@ export default function App() {
     }
   };
 
+  const activeClients = useMemo(() => {
+    if (!isLive) return placeholderClients;
+    return liveClients.map((summary) => toClientDossier(
+      summary,
+      summary.client_id === liveSelectedClientId ? snapshot || undefined : undefined,
+      summary.client_id === liveSelectedClientId ? exposure || undefined : undefined,
+    ));
+  }, [isLive, liveClients, liveSelectedClientId, snapshot, exposure]);
+
+  const selectedClientId = isLive ? liveSelectedClientId : fixtureSelectedClientId;
   // Current client for detail view
   const currentClient = useMemo(() => {
     return (
-      placeholderClients.find((c) => c.id === selectedClientId) ||
-      placeholderClients[0]
+      activeClients.find((c) => c.id === selectedClientId) || activeClients[0]
     );
-  }, [selectedClientId]);
+  }, [activeClients, selectedClientId]);
 
   // Filtered priority clients for Section 02
   const filteredPriorityClients = useMemo(() => {
-    return placeholderClients.filter((c) => {
+    return activeClients.filter((c) => {
       const matchesSearch =
         searchQuery === '' ||
         c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -112,7 +133,18 @@ export default function App() {
 
       return matchesSearch && matchesRisk;
     });
-  }, [searchQuery, selectedRiskFilter]);
+  }, [activeClients, searchQuery, selectedRiskFilter]);
+
+  const liveManager = liveClients.find((client) => client.rm_name) || liveClients[0];
+  const managerName = isLive ? (liveManager?.rm_name || 'Relationship manager') : currentRM.name;
+  const managerDesk = isLive ? (liveManager?.rm_desk || 'Live wealth data') : currentRM.desk;
+  const totalAum = isLive
+    ? `USD ${liveClients.reduce((total, client) => total + (Number(client.aum_usd_at_as_of) || 0), 0).toLocaleString('en-US', { maximumFractionDigits: 0 })}`
+    : currentRM.totalDeskAUM;
+  const briefingTitle = isLive ? 'BACKEND DATA STATUS' : executiveBriefing.title;
+  const briefingSummary = isLive
+    ? 'Client identities, dated holdings, facilities, market context, and exposure calculations are loaded from the read-only wealth database. Narrative interpretation and recommendations are not calculated by the current backend.'
+    : executiveBriefing.summary;
 
   return (
     <div className="min-h-screen bg-[#faf9f6] text-[#121212] font-sans antialiased flex flex-col selection:bg-neutral-900 selection:text-[#faf9f6]">
@@ -133,7 +165,10 @@ export default function App() {
         }}
         mobileOpen={mobileSidebarOpen}
         onCloseMobile={() => setMobileSidebarOpen(false)}
-        clientCount={placeholderClients.length}
+        clientCount={activeClients.length}
+        rmName={managerName}
+        rmTitle={isLive ? 'Relationship Manager · live' : currentRM.title}
+        bookingDeskMetric={isLive ? 'Read-only' : currentRM.bookingDesk.metricValue}
       />
 
       {/* 2. Docked Top Header */}
@@ -145,11 +180,16 @@ export default function App() {
         onOpenEmergencyFreeze={() => setIsEmergencyFreezeOpen(true)}
         onOpenNewOrder={() => setIsNewOrderOpen(true)}
         onToggleMobileMenu={() => setMobileSidebarOpen(true)}
-        unreadNotifications={4}
+        unreadNotifications={0}
+        riskFilterEnabled={!isLive}
+        notificationsEnabled={!isLive}
       />
 
       {/* 3. Main Stage Content */}
       <main className="lg:pl-60 pt-14 w-full min-h-screen flex flex-col">
+        <div className="px-6 sm:px-10 pt-4 max-w-6xl mx-auto w-full flex justify-end">
+          <SnapshotDateSelector />
+        </div>
         {/* VIEW 1: OVERVIEW / DASHBOARD (Image 1) */}
         {currentView === 'overview' && (
           <div className="w-full flex-1">
@@ -158,12 +198,12 @@ export default function App() {
               <div className="max-w-6xl mx-auto flex flex-col md:flex-row md:items-end justify-between gap-4">
                 <div>
                   <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.14em] font-medium text-[#767676] mb-2">
-                    <span>Dataset as-of 26 August 2026</span>
+                    <span>{isLive ? `Dataset as-of ${asOfDate || 'loading'}` : 'Dataset as-of 26 August 2026'}</span>
                     <span className="text-[#dedbd5]">•</span>
-                    <span>{currentRM.desk}</span>
+                    <span>{managerDesk}</span>
                   </div>
                   <h1 className="font-serif text-[32px] sm:text-[36px] leading-tight text-[#121212] tracking-tight">
-                    Good morning, {currentRM.name.split(' ')[0]}
+                    Good morning, {managerName.split(' ')[0]}
                   </h1>
                 </div>
 
@@ -171,14 +211,14 @@ export default function App() {
                   <span>
                     Desk Book AUM:{' '}
                     <strong className="text-[#121212] font-semibold">
-                      {currentRM.totalDeskAUM}
+                      {totalAum}
                     </strong>
                   </span>
                   <span className="text-[#dedbd5]">•</span>
                   <span>
                     Active Alerts:{' '}
                     <strong className="text-[#7A1C28] font-semibold">
-                      {currentRM.activeAlertsCount} Urgent
+                      {isLive ? 'Not calculated' : `${currentRM.activeAlertsCount} Urgent`}
                     </strong>
                   </span>
                 </div>
@@ -192,24 +232,34 @@ export default function App() {
                 <div className="flex-1">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-1 gap-1">
                     <span className="text-[9.5px] uppercase tracking-[0.14em] font-medium text-[#767676]">
-                      {executiveBriefing.title}
+                      {briefingTitle}
                     </span>
                     <span className="font-mono text-[11px] text-[#888888]">
-                      {executiveBriefing.syncTime}
+                      {isLive ? 'Read-only API' : executiveBriefing.syncTime}
                     </span>
                   </div>
                   <p className="text-[13px] text-[#1e1e1e] leading-relaxed">
-                    {executiveBriefing.summary}
+                    {briefingSummary}
                   </p>
                 </div>
               </div>
             </div>
+            {(loading || error || dateError) && (
+              <div className="px-6 sm:px-10 pt-4 max-w-6xl mx-auto w-full">
+                <div className={`border px-4 py-3 text-[12px] ${error || dateError ? 'bg-[#fcf5f5] border-[#eed6d9] text-[#7A1C28]' : 'bg-white border-[#e8e5e0] text-[#666666]'}`}>
+                  {error || dateError || 'Loading dated wealth data…'}
+                </div>
+              </div>
+            )}
 
             {/* Operational Workspace Content Stage */}
             <div className="px-6 sm:px-10 py-10 flex-1 max-w-6xl mx-auto w-full space-y-12">
               {/* SECTION 01: Market & Portfolio Impact */}
               <MarketImpactSection
                 onSelectClientByName={handleSelectClientByName}
+                marketContext={marketContext}
+                live={isLive}
+                asOfDate={asOfDate}
               />
 
               {/* SECTION 02: Priority Client Dossiers */}
@@ -240,7 +290,7 @@ export default function App() {
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() =>
-                        setExpandedCardIds(new Set(placeholderClients.map((c) => c.id)))
+                        setExpandedCardIds(new Set(activeClients.map((c) => c.id)))
                       }
                       className="hover:text-[#121212] underline underline-offset-4"
                     >
@@ -293,7 +343,7 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => {
-                      setActiveBriefClient(placeholderClients[0]);
+                      setActiveBriefClient(activeClients[0] || null);
                       setIsBriefModalOpen(true);
                     }}
                     className="px-4 py-2 bg-[#121212] text-[#faf9f6] hover:bg-neutral-800 text-[10px] font-medium uppercase tracking-[0.14em] transition-colors flex items-center gap-2 cursor-pointer"
@@ -320,7 +370,7 @@ export default function App() {
         )}
 
         {/* VIEW 2: CLIENT DETAIL SCREEN (Image 3) */}
-        {currentView === 'client-detail' && (
+        {currentView === 'client-detail' && currentClient && (
           <ClientDetailPage
             client={currentClient}
             onBack={() => {
@@ -333,19 +383,26 @@ export default function App() {
             }}
             onViewSourceData={() => setIsSourceDataModalOpen(true)}
             onSelectAnotherClient={handleSelectClient}
-            allClients={placeholderClients}
+            allClients={activeClients}
+            rmName={managerName}
+            asOfDate={asOfDate}
+            comparisonDate={comparisonDate}
+            periodStart={periodStart}
+            periodEnd={periodEnd}
+            exposureChanges={isLive ? wealthData.exposureChanges : undefined}
           />
         )}
 
         {/* VIEW 3: FULL CLIENTS LIST DIRECTORY */}
         {currentView === 'clients' && (
           <div className="px-6 sm:px-10 py-10 max-w-6xl mx-auto w-full">
-            <ClientsListView
-              clients={placeholderClients}
+                <ClientsListView
+                  clients={activeClients}
               onSelectClient={handleSelectClient}
               searchQuery={searchQuery}
-              onSearchChange={setSearchQuery}
-            />
+                  onSearchChange={setSearchQuery}
+                  riskFilteringAvailable={!isLive}
+                />
           </div>
         )}
       </main>
@@ -362,6 +419,7 @@ export default function App() {
       <SourceDataModal
         isOpen={isSourceDataModalOpen}
         onClose={() => setIsSourceDataModalOpen(false)}
+        snapshot={isLive ? snapshot : undefined}
       />
 
       <EmergencyFreezeModal
@@ -372,11 +430,19 @@ export default function App() {
       <NewOrderModal
         isOpen={isNewOrderOpen}
         onClose={() => setIsNewOrderOpen(false)}
-        clients={placeholderClients}
+        clients={activeClients}
         onOrderPlaced={(name, type) => {
             showToast(`Prototype action recorded for ${name} (${type})`);
         }}
       />
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <WealthDataProvider>
+      <AppContent />
+    </WealthDataProvider>
   );
 }

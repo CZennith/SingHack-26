@@ -18,6 +18,12 @@ interface ClientDetailPageProps {
   onViewSourceData: () => void;
   onSelectAnotherClient: (clientId: string) => void;
   allClients: ClientDossier[];
+  rmName?: string;
+  asOfDate?: string;
+  comparisonDate?: string;
+  periodStart?: string;
+  periodEnd?: string;
+  exposureChanges?: Record<string, unknown>;
 }
 
 export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
@@ -27,17 +33,27 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
   onViewSourceData,
   onSelectAnotherClient,
   allClients,
+  rmName = 'Priscilla Ong',
+  asOfDate,
+  comparisonDate,
+  periodStart,
+  periodEnd,
+  exposureChanges,
 }) => {
   const currentIndex = allClients.findIndex((c) => c.id === client.id);
   const prevClient = currentIndex > 0 ? allClients[currentIndex - 1] : null;
   const nextClient = currentIndex < allClients.length - 1 ? allClients[currentIndex + 1] : null;
+  const exposureFacts = Array.isArray(exposureChanges?.facts)
+    ? exposureChanges.facts.filter((fact): fact is Record<string, unknown> => typeof fact === 'object' && fact !== null)
+    : [];
+  const changedExposureFacts = exposureFacts.filter((fact) => fact.status && fact.status !== 'unchanged').slice(0, 4);
 
   return (
     <div id="client-detail-view" className="w-full min-h-screen bg-[#faf9f6]">
       {/* Top Floating RM Profile Tag (as in Image 3 top right) */}
       <div className="hidden md:flex fixed top-4 right-8 z-20 items-center gap-3 bg-[#faf9f6]/90 backdrop-blur-xs py-1 px-2 border border-[#e8e5e0]">
         <div className="text-right">
-          <div className="text-[12px] font-medium text-[#121212] leading-none">Priscilla Ong</div>
+          <div className="text-[12px] font-medium text-[#121212] leading-none">{rmName}</div>
           <div className="text-[10px] text-[#767676] mt-0.5 leading-none">Relationship Manager</div>
         </div>
         <div className="w-7 h-7 rounded-full border border-[#dedbd5] bg-white flex items-center justify-center text-[#121212] shadow-2xs">
@@ -110,7 +126,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
             </span>
             <span className="text-[11px] text-[#55534e] flex items-center gap-1.5 font-mono">
               <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
-              Fixture snapshot · 26 Aug 2026
+              {asOfDate ? `Backend snapshot · ${asOfDate}` : 'Fixture snapshot · 26 Aug 2026'}
             </span>
           </div>
 
@@ -119,7 +135,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
               About {client.name.split(' ')[0]}
             </h2>
             <p className="text-[14px] leading-[23px] text-[#55534e] font-normal max-w-4xl">
-              {client.about.bio}
+              {client.about.bio || 'Profile narrative is not available from the current backend.'}
             </p>
 
             <div className="flex flex-wrap items-center gap-4 mt-6 pt-5 border-t border-[#e8e5e0] text-[12px] text-[#666666]">
@@ -130,12 +146,12 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
               <span className="text-[#dedbd5]">·</span>
               <span className="inline-flex items-center gap-1.5">
                 <Briefcase className="w-3.5 h-3.5 text-[#8c887f]" />
-                {client.about.occupation}
+                {client.about.occupation || 'Occupation not available'}
               </span>
               <span className="text-[#dedbd5]">·</span>
               <span className="inline-flex items-center gap-1.5">
                 <ShieldCheck className="w-3.5 h-3.5 text-[#8c887f]" />
-                Client since {client.about.clientSince}
+                {client.about.clientSince ? `Client since ${client.about.clientSince}` : 'Client since not available'}
               </span>
             </div>
           </div>
@@ -148,7 +164,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
               SECTION 02 · CUSTODY &amp; LIQUIDITY
             </span>
             <span className="text-[11px] text-[#666666] font-mono">
-              Valuation as of 16:00 EST
+              {asOfDate ? `Valuation snapshot · ${asOfDate}` : 'Valuation as of 16:00 EST'}
             </span>
           </div>
 
@@ -206,7 +222,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
               <div className="font-serif text-[28px] leading-tight text-[#121212] font-normal">
                 {client.portfolio.borrowingUtilisation}{' '}
                 <span className="text-[13px] font-sans text-[#8c887f] ml-1 font-normal">
-                  ({client.portfolio.borrowingLtvPercent}% of LTV)
+                  ({client.portfolio.borrowingLtvPercent === null ? 'Not calculated' : `${client.portfolio.borrowingLtvPercent}%`} of LTV)
                 </span>
               </div>
 
@@ -218,7 +234,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
                       ? 'bg-[#121212]'
                       : 'bg-[#55534e]'
                   }`}
-                  style={{ width: `${Math.min(client.portfolio.borrowingLtvPercent, 100)}%` }}
+                  style={{ width: `${Math.min(client.portfolio.borrowingLtvPercent ?? 0, 100)}%` }}
                 />
               </div>
             </div>
@@ -234,7 +250,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
                   <span className="text-[10px] tracking-[0.12em] uppercase font-semibold text-[#55534e] font-mono">
                     ASSET ALLOCATION
                   </span>
-                  <span className="text-[11px] text-[#8c887f]">Target vs Realised</span>
+                  <span className="text-[11px] text-[#8c887f]">Realised allocation</span>
                 </div>
 
                 {/* Allocation Segmented Bar */}
@@ -262,15 +278,39 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
                 </div>
               </div>
 
+              <div className="bg-white border border-[#e8e5e0] p-5 shadow-2xs">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] tracking-[0.12em] uppercase font-semibold text-[#55534e] font-mono">
+                    EXPOSURE COMPARISON
+                  </span>
+                  <span className="text-[11px] text-[#8c887f] font-mono">
+                    {comparisonDate ? `${comparisonDate} → ${asOfDate}` : 'Not connected'}
+                  </span>
+                </div>
+                {exposureChanges ? (
+                  changedExposureFacts.length ? (
+                    <div className="space-y-1.5 text-[11.5px] text-[#55534e]">
+                      {changedExposureFacts.map((fact, index) => {
+                        const scope = fact.scope as Record<string, unknown> | undefined;
+                        return <div key={index} className="flex items-center justify-between gap-3">
+                          <span>{String(scope?.dimension ?? 'Exposure')} · {String(scope?.key ?? 'Unclassified')}</span>
+                          <span className="font-mono text-[#121212]">{String(fact.status)} · USD {String(fact.change ?? 'not available')}</span>
+                        </div>;
+                      })}
+                    </div>
+                  ) : <p className="text-[12px] text-[#888888]">No exposure changes were calculated for this comparison.</p>
+                ) : <p className="text-[12px] text-[#888888]">Exposure comparison is loading or unavailable.</p>}
+              </div>
+
               {/* 12-Month Trajectory Card */}
               <div className="bg-white border border-[#e8e5e0] p-5 shadow-2xs">
                 <div className="flex items-start justify-between mb-3">
                   <div>
                     <div className="text-[10px] tracking-[0.12em] uppercase font-semibold text-[#55534e] font-mono">
-                      12-MONTH TRAJECTORY
+                      PERFORMANCE TRAJECTORY
                     </div>
                     <div className="text-[11px] text-[#8c887f] mt-0.5">
-                      Includes recent drawdown trough and swift leverage recovery
+                      {periodStart && periodEnd ? `Selected period · ${periodStart} to ${periodEnd}` : 'Selected snapshot period'}
                     </div>
                   </div>
                   <div className="text-right">
@@ -284,7 +324,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
                 </div>
 
                 {/* SVG Chart */}
-                <div className="relative w-full pt-2 pb-1">
+                {client.portfolio.trajectory.points.length ? <div className="relative w-full pt-2 pb-1">
                   <svg
                     className="w-full h-28 overflow-visible"
                     preserveAspectRatio="none"
@@ -336,7 +376,9 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
                       {client.portfolio.trajectory.endLabel}
                     </span>
                   </div>
-                </div>
+                </div> : <div className="border border-dashed border-[#dedbd5] p-5 text-[12px] text-[#888888]">
+                  Trajectory and performance calculations are not available from the current backend.
+                </div>}
               </div>
             </div>
 
@@ -347,11 +389,11 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
                   <span className="text-[10px] tracking-[0.12em] uppercase font-semibold text-[#55534e] font-mono">
                     TOP PORTFOLIO HOLDINGS
                   </span>
-                  <span className="text-[11px] text-[#8c887f] font-mono">77.9% of Total</span>
+                  <span className="text-[11px] text-[#8c887f] font-mono">Selected snapshot</span>
                 </div>
 
                 <div className="divide-y divide-[#f0eee9]">
-                  {client.portfolio.topHoldings.map((h) => (
+                  {client.portfolio.topHoldings.length ? client.portfolio.topHoldings.map((h) => (
                     <div key={h.id} className="py-3 flex items-start justify-between">
                       <div>
                         <div className="text-[13px] font-medium text-[#121212]">{h.name}</div>
@@ -366,7 +408,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
                         </div>
                       </div>
                     </div>
-                  ))}
+                  )) : <p className="py-5 text-[12px] text-[#888888]">No holdings available for this client and date.</p>}
                 </div>
               </div>
 
@@ -391,7 +433,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
               <div className="flex items-center gap-2">
                 <span className="text-[#121212] text-[15px]">✦</span>
                 <h3 className="font-serif text-[20px] text-[#121212] font-normal">
-                  {client.synthesisedAnalysis.headline}
+                {client.synthesisedAnalysis.headline || 'Evidence-bound interpretation unavailable'}
                 </h3>
               </div>
               <span className="text-[11px] text-[#8c887f] font-mono">
@@ -400,7 +442,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
             </div>
 
             <p className="text-[14px] leading-[23px] text-[#121212] font-normal max-w-4xl">
-              {client.synthesisedAnalysis.narrative}
+              {client.synthesisedAnalysis.narrative || 'The current backend provides validated holdings and exposure data, but does not calculate narrative interpretation.'}
             </p>
 
             {/* Sub-cards: Why it Matters & Monitor */}
@@ -410,7 +452,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
                   WHY IT MATTERS
                 </div>
                 <p className="text-[12.5px] leading-relaxed text-[#55534e]">
-                  {client.synthesisedAnalysis.whyItMatters}
+                  {client.synthesisedAnalysis.whyItMatters || 'Not calculated by the current backend.'}
                 </p>
               </div>
 
@@ -419,7 +461,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
                   MONITOR
                 </div>
                 <p className="text-[12.5px] leading-relaxed text-[#55534e]">
-                  {client.synthesisedAnalysis.monitor}
+                  {client.synthesisedAnalysis.monitor || 'Not calculated by the current backend.'}
                 </p>
               </div>
             </div>
@@ -447,7 +489,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
               </div>
 
               <ul className="space-y-3.5 text-[12.5px] leading-relaxed text-[#55534e]">
-                {client.strategicMatrix.risks.map((risk, idx) => (
+                {client.strategicMatrix.risks.length ? client.strategicMatrix.risks.map((risk, idx) => (
                   <li key={idx} className="flex items-start gap-2.5">
                     <span className="text-[#b33939] text-xs mt-0.5 font-bold">•</span>
                     <span>
@@ -455,7 +497,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
                       {risk.description}
                     </span>
                   </li>
-                ))}
+                )) : <li className="text-[#888888]">Risk findings are not calculated by the current backend.</li>}
               </ul>
             </div>
 
@@ -469,7 +511,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
               </div>
 
               <ul className="space-y-3.5 text-[12.5px] leading-relaxed text-[#55534e]">
-                {client.strategicMatrix.opportunities.map((opp, idx) => (
+                {client.strategicMatrix.opportunities.length ? client.strategicMatrix.opportunities.map((opp, idx) => (
                   <li key={idx} className="flex items-start gap-2.5">
                     <span className="text-[#2c6e6a] text-xs mt-0.5 font-bold">•</span>
                     <span>
@@ -477,7 +519,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
                       {opp.description}
                     </span>
                   </li>
-                ))}
+                )) : <li className="text-[#888888]">Opportunities are not calculated by the current backend.</li>}
               </ul>
             </div>
           </div>

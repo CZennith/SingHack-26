@@ -3,11 +3,26 @@ import { macroIndicators, marketImpactPillars } from '../data/placeholderData';
 
 interface MarketImpactSectionProps {
   onSelectClientByName?: (clientName: string) => void;
+  marketContext?: Array<Record<string, unknown>>;
+  live?: boolean;
+  asOfDate?: string;
 }
 
 export const MarketImpactSection: React.FC<MarketImpactSectionProps> = ({
   onSelectClientByName,
+  marketContext = [],
+  live = false,
+  asOfDate,
 }) => {
+  const indicators = live
+    ? marketContext.slice(0, 6).map((item, index) => ({
+        id: String(item.series_id ?? index),
+        label: String(item.series_name ?? item.series_id ?? 'Market context'),
+        value: item.value == null ? 'Not available' : String(item.value),
+        subtext: item.unit ? String(item.unit) : undefined,
+      }))
+    : macroIndicators;
+  const pillars = live ? [] : marketImpactPillars;
   return (
     <section id="section-market-impact" className="space-y-4">
       {/* Section Header */}
@@ -19,7 +34,7 @@ export const MarketImpactSection: React.FC<MarketImpactSectionProps> = ({
         </div>
         <div className="flex items-center gap-2 font-mono text-[11px] text-[#767676]">
           <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
-          <span>Fixture snapshot · 26 Aug 2026</span>
+          <span>{live ? `Raw market context · ${asOfDate || 'loading'}` : 'Fixture snapshot · 26 Aug 2026'}</span>
         </div>
       </div>
 
@@ -37,13 +52,15 @@ export const MarketImpactSection: React.FC<MarketImpactSectionProps> = ({
               </span>
             </div>
             <p className="text-[12.5px] text-[#666666] mt-1">
-              Synthetic market and event snapshots mapped to affected accounts and collateral lines.
+              {live
+                ? 'Dated market-context records returned by the backend. Portfolio impact narratives are not calculated.'
+                : 'Synthetic market and event snapshots mapped to affected accounts and collateral lines.'}
             </p>
           </div>
 
           {/* Quick Macro Tickers */}
           <div className="flex flex-wrap items-center gap-2 text-[11px] font-mono">
-            {macroIndicators.map((item) => {
+            {indicators.map((item) => {
               if (item.highlightColor === 'red') {
                 return (
                   <div
@@ -91,7 +108,7 @@ export const MarketImpactSection: React.FC<MarketImpactSectionProps> = ({
 
         {/* 3 Structured Intelligence Pillars */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-          {marketImpactPillars.map((pillar) => {
+          {pillars.map((pillar) => {
             const isRed = pillar.badgeStyle === 'red';
             const isAmber = pillar.badgeStyle === 'amber';
 
@@ -171,6 +188,16 @@ export const MarketImpactSection: React.FC<MarketImpactSectionProps> = ({
               </article>
             );
           })}
+          {live && (
+            <article className="lg:col-span-3 bg-[#faf9f6] border border-[#e8e5e0] p-4">
+              <h3 className="font-serif text-[15px] font-semibold text-[#121212] mb-2">
+                Portfolio impact analysis unavailable
+              </h3>
+              <p className="text-[12px] text-[#666666] leading-relaxed">
+                The backend currently exposes dated market context only; no affected-account narrative or recommendation is fabricated here.
+              </p>
+            </article>
+          )}
         </div>
       </div>
     </section>

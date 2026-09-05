@@ -1,12 +1,14 @@
 import React from 'react';
-import { currentRM } from '../data/placeholderData';
-
 interface SidebarProps {
   currentView: 'overview' | 'clients' | 'client-detail';
   onNavigate: (view: 'overview' | 'clients') => void;
   mobileOpen: boolean;
   onCloseMobile: () => void;
   clientCount: number;
+  rmName?: string;
+  rmTitle?: string;
+  bookingDeskName?: string;
+  bookingDeskMetric?: string;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -15,6 +17,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   mobileOpen,
   onCloseMobile,
   clientCount,
+  rmName = 'Priscilla Ong',
+  rmTitle = 'Relationship Manager',
+  bookingDeskName = 'Zurich Booking Desk',
+  bookingDeskMetric = 'Nominal',
 }) => {
   return (
     <>
@@ -102,13 +108,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="p-3 bg-[#ffffff] border border-[#e8e5e0] shadow-2xs">
             <div className="flex items-center justify-between text-[#767676] mb-1.5">
               <span className="text-[9.5px] uppercase tracking-[0.08em] font-medium">
-                {currentRM.bookingDesk.name}
+                {bookingDeskName}
               </span>
               <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#121212]" />
             </div>
             <div className="font-mono text-[11px] text-[#121212] flex justify-between items-center">
-              <span className="text-[#767676]">{currentRM.bookingDesk.metricLabel}</span>
-              <span className="font-medium">{currentRM.bookingDesk.metricValue}</span>
+              <span className="text-[#767676]">Data status</span>
+              <span className="font-medium">{bookingDeskMetric}</span>
             </div>
           </div>
 
@@ -116,9 +122,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="pt-4 border-t border-[#e8e5e0] flex items-center justify-between">
             <div>
               <div className="text-[13px] font-medium text-[#121212] leading-snug">
-                {currentRM.name}
+                {rmName}
               </div>
-              <div className="text-[11px] text-[#767676]">{currentRM.title}</div>
+              <div className="text-[11px] text-[#767676]">{rmTitle}</div>
             </div>
             <span
               className="inline-block w-2 h-2 rounded-full bg-emerald-600 ring-2 ring-emerald-100"

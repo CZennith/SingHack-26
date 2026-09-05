@@ -11,6 +11,8 @@ interface TopHeaderProps {
   onOpenNewOrder: () => void;
   onToggleMobileMenu: () => void;
   unreadNotifications: number;
+  riskFilterEnabled?: boolean;
+  notificationsEnabled?: boolean;
 }
 
 export const TopHeader: React.FC<TopHeaderProps> = ({
@@ -22,6 +24,8 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
   onOpenNewOrder,
   onToggleMobileMenu,
   unreadNotifications,
+  riskFilterEnabled = true,
+  notificationsEnabled = true,
 }) => {
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [showNotificationMenu, setShowNotificationMenu] = useState(false);
@@ -72,11 +76,13 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
               id="notifications-button"
               type="button"
               aria-label="Notifications"
+              disabled={!notificationsEnabled}
+              title={notificationsEnabled ? 'Notifications' : 'Notifications are not connected'}
               onClick={() => {
                 setShowNotificationMenu(!showNotificationMenu);
                 setShowFilterMenu(false);
               }}
-              className="p-1.5 text-[#666666] hover:text-[#121212] hover:bg-[#f4f3f0] transition-colors relative"
+              className="p-1.5 text-[#666666] hover:text-[#121212] hover:bg-[#f4f3f0] transition-colors relative disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Bell className="w-4 h-4" />
               {unreadNotifications > 0 && (
@@ -120,7 +126,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
           </div>
 
           {/* Filter / Tune Button */}
-          <div className="relative">
+          {riskFilterEnabled ? <div className="relative">
             <button
               id="filter-toggle-button"
               type="button"
@@ -164,7 +170,11 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
                 ))}
               </div>
             )}
-          </div>
+          </div> : (
+            <span className="px-1.5 text-[10px] font-mono text-[#888888]" title="Risk calculations are not available from the current backend">
+              Risk filters unavailable
+            </span>
+          )}
         </div>
 
         {/* Action Buttons */}

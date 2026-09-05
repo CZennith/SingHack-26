@@ -1,8 +1,8 @@
 /**
  * Provider-neutral frontend contracts.
  *
- * These types describe the future integration boundary only. The current UI
- * intentionally continues to use src/data/placeholderData.ts.
+ * These types describe provider-neutral integration boundaries. Fixture mode
+ * remains available, while live mode is backed by the read-only wealth API.
  */
 
 export type ConnectorMode = 'mock' | 'live';

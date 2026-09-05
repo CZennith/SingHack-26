@@ -357,11 +357,9 @@ information into timely, personalised and trustworthy advisory conversations.
 
 ## Project workspace
 
-The Aurelius Private Wealth UI prototype now lives in [`frontend/`](frontend/). It is intentionally
-fixture-backed while the integration boundaries are being developed. Connector contracts and the
-team workflow are documented in [`docs/EDITING_PROJECT.md`](docs/EDITING_PROJECT.md); the Python
-side contains interfaces only in [`backend/connectors/`](backend/connectors/), not running backend
-services.
+The Aurelius Private Wealth UI lives at the repository root. It supports fixture mode for safe
+previews and a live, read-only mode backed by the local wealth API. Connector contracts and the
+team workflow are documented in [`docs/EDITING_PROJECT.md`](docs/EDITING_PROJECT.md).
 
 ## Local DuckDB database
 
@@ -660,9 +658,7 @@ logic is included. See [`exposure_base.md`](docs/calculators/exposure_base.md) a
 
 The repository root is the application root. The former wrapper directory has been removed, so
 Vercel should be connected to this repository with no Root Directory override. The frontend is a
-React/TypeScript Vite application; the backend is currently a small Python module layer rather than
-FastAPI or Flask. The only deployed Python function is the dependency-free health check at
-`GET /api/health`, which returns `{"status": "ok"}`.
+React/TypeScript Vite application and the read-only Python API is exposed at `/api/wealth`.
 
 ### Local installation and development
 
@@ -673,13 +669,20 @@ python3 -m venv .venv
 source .venv/bin/activate
 python3 -m pip install -r requirements.txt
 npm install
-npm run dev
+DEMO_MODE=false WEALTH_DB_PATH="$(pwd)/db/wealth.duckdb" python3 -m backend.dev_server
+# In a second terminal:
+VITE_CONNECTOR_MODE=live npm run dev
 python3 -m pytest -q
 ```
 
 The frontend runs at `http://localhost:3000`. The frontend build is `npm run build` and writes
 `dist/`; `npm run typecheck` checks TypeScript. Python dependencies are declared in
 `requirements.txt` and the project requires Python 3.10 or newer.
+
+The live API resources are selected with the `resource` query parameter: `dates`, `clients`,
+`snapshot`, `exposure`, `exposure_changes`, and `market_context`. The Vite development proxy
+forwards `/api` to the local server. Every database connection used by the API is DuckDB
+read-only; the browser never opens the database.
 
 ### Environment variables
 
@@ -699,11 +702,12 @@ The two supported operating modes are:
 
 ### Vercel preview workflow
 
-The root `vercel.json` contains only the Vite build command and `dist` output directory; Vercel
-detects `api/health.py` as a Python function. In the Vercel dashboard, import the repository,
+The root `vercel.json` contains the Vite build command and `dist` output directory; Vercel
+detects the Python functions in `api/`. In the Vercel dashboard, import the repository,
 leave the Root Directory at the repository root, set the preview variables from `.env.example`,
 and use the Preview environment. Verify `/api/health` and the built frontend before sharing the
-preview URL. No production deployment was made as part of this preparation.
+preview URL. A live Vercel deployment requires a permitted private data source; the local DuckDB
+is intentionally excluded from the deployment bundle.
 
 To redeploy a new preview, push the reviewed commit or use Vercel's dashboard redeploy action. To
 roll back, select the previous successful deployment and promote/redeploy it according to the

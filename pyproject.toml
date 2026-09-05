@@ -17,4 +17,5 @@ pythonpath = ["."]
 testpaths = ["tests"]
 markers = [
     "live_openai: explicitly authorized test that makes one paid OpenAI API request",
+    "integration: read-only integration coverage against the local wealth database",
 ]
