@@ -25,7 +25,7 @@ from typing import Any
 
 import pandas as pd
 
-from .stress_types import ConcentrationRow
+from stress_types import ConcentrationRow
 
 AS_OF = "2026-08-26"
 

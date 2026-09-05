@@ -33,7 +33,7 @@ from typing import Any
 
 import pandas as pd
 
-from .stress_test import apply_shock, compute_ltv_stress, summarize_shock_results, _text
+from stress_test import apply_shock, compute_ltv_stress, summarize_shock_results, _text
 
 
 def run_book_scenario(

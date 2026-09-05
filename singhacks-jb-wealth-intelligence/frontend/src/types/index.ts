@@ -84,6 +84,9 @@ export interface ClientDossier {
   summary: string;
   tags: string[];
   suggestedNextStep: string;
+  asOf?: string;
+  valuationAsOf?: string;
+  relationshipManager?: { name: string; title?: string };
   urgencyScore?: number;
   prioritizationTriggers?: string[];
   

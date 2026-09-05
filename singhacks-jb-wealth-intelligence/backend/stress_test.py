@@ -8,7 +8,7 @@ from typing import Any
 
 import pandas as pd
 
-from .stress_types import HoldingShockResult, LTVStressRow, NAMED_SCENARIOS
+from stress_types import HoldingShockResult, LTVStressRow, NAMED_SCENARIOS
 
 
 AS_OF = "2026-08-26"

@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useMemo } from 'react';
 import {
   Sidebar,
@@ -7,6 +8,7 @@ import { MarketImpactSection } from './components/MarketImpactSection';
 import { PriorityClientCard } from './components/PriorityClientCard';
 import { ClientDetailPage } from './components/ClientDetailPage';
 import { ClientsListView } from './components/ClientsListView';
+import { StressWorkbenchPage } from './components/StressWorkbenchPage';
 import {
   BriefModal,
   SourceDataModal,
@@ -16,20 +18,23 @@ import {
 import {
   currentRM,
   executiveBriefing,
-  placeholderClients,
 } from './data/placeholderData';
 import { ClientDossier, RiskSeverity } from './types';
+import { fetchClientDossier, fetchClientInsights, fetchClients } from './services/clientsApi';
 import { FileText, SlidersHorizontal, Sparkles } from 'lucide-react';
 import { getPrioritization } from './services/prioritization';
 
 export default function App() {
+  const [clients, setClients] = useState<ClientDossier[]>([]);
+  const [clientLoadError, setClientLoadError] = useState<string | null>(null);
+  const [dossierLoadError, setDossierLoadError] = useState<string | null>(null);
+  const [isDossierLoading, setIsDossierLoading] = useState(false);
   // Navigation & View State
-  const [currentView, setCurrentView] = useState<'overview' | 'clients' | 'client-detail'>(
+  const [currentView, setCurrentView] = useState<'overview' | 'clients' | 'client-detail' | 'stress-workbench'>(
     'overview'
   );
-  const [selectedClientId, setSelectedClientId] = useState<string>('ravi-chandrasekaran');
+  const [selectedClientId, setSelectedClientId] = useState<string>('');
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [clients, setClients] = useState(placeholderClients);
 
   useEffect(() => {
     let isMounted = true;
@@ -41,8 +46,8 @@ export default function App() {
         const prioritizationByName = new Map(
           result.clients.map((client) => [client.client_name, client]),
         );
-        setClients(
-          placeholderClients.map((client) => {
+        setClients((prevClients) =>
+          prevClients.map((client) => {
             const prioritized = prioritizationByName.get(client.name);
             if (!prioritized) return client;
 
@@ -83,6 +88,48 @@ export default function App() {
   const [isEmergencyFreezeOpen, setIsEmergencyFreezeOpen] = useState(false);
   const [isNewOrderOpen, setIsNewOrderOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    fetchClients(controller.signal)
+      .then((loadedClients) => {
+        setClients(loadedClients);
+        setSelectedClientId((currentId) =>
+          loadedClients.some((client) => client.id === currentId)
+            ? currentId
+            : (loadedClients[0]?.id ?? currentId),
+        );
+      })
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === 'AbortError') return;
+        setClientLoadError(
+          error instanceof Error ? error.message : 'Unable to load client profiles.',
+        );
+      });
+
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    if (currentView !== 'client-detail' || !selectedClientId) return;
+    const controller = new AbortController();
+    setIsDossierLoading(true);
+    setDossierLoadError(null);
+
+    Promise.all([fetchClientDossier(selectedClientId, controller.signal), fetchClientInsights(selectedClientId, controller.signal)])
+      .then(([dossier, insights]) => {
+        const hydratedClient = { ...dossier, ...insights };
+        setClients((previous) => previous.map((client) => client.id === selectedClientId ? hydratedClient : client));
+      })
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === 'AbortError') return;
+        setDossierLoadError(error instanceof Error ? error.message : 'Unable to load client dossier.');
+      })
+      .finally(() => setIsDossierLoading(false));
+
+    return () => controller.abort();
+  }, [currentView, selectedClientId]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -130,9 +177,10 @@ export default function App() {
   const currentClient = useMemo(() => {
     return (
       clients.find((c) => c.id === selectedClientId) ||
-      clients[0]
+      clients[0] ||
+      null
     );
-  }, [selectedClientId]);
+  }, [clients, selectedClientId]);
 
   // Filtered priority clients for Section 02
   const filteredPriorityClients = useMemo(() => {
@@ -165,7 +213,11 @@ export default function App() {
       <Sidebar
         currentView={currentView}
         onNavigate={(view) => {
-          setCurrentView(view);
+          if (view === 'stress-workbench') {
+            setCurrentView('stress-workbench');
+          } else {
+            setCurrentView(view);
+          }
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         mobileOpen={mobileSidebarOpen}
@@ -187,6 +239,11 @@ export default function App() {
 
       {/* 3. Main Stage Content */}
       <main className="lg:pl-60 pt-14 w-full min-h-screen flex flex-col">
+        {clientLoadError && (
+          <div className="lg:ml-0 mx-6 sm:mx-10 mt-5 border border-amber-200 bg-amber-50 px-4 py-3 text-[12px] text-amber-900">
+            Could not refresh client profiles from the backend: {clientLoadError} Showing the local preview instead.
+          </div>
+        )}
         {/* VIEW 1: OVERVIEW / DASHBOARD (Image 1) */}
         {currentView === 'overview' && (
           <div className="w-full flex-1">
@@ -330,7 +387,7 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => {
-                      setActiveBriefClient(clients[0]);
+                      setActiveBriefClient(clients[0] ?? null);
                       setIsBriefModalOpen(true);
                     }}
                     className="px-4 py-2 bg-[#121212] text-[#faf9f6] hover:bg-neutral-800 text-[10px] font-medium uppercase tracking-[0.14em] transition-colors flex items-center gap-2 cursor-pointer"
@@ -358,20 +415,28 @@ export default function App() {
 
         {/* VIEW 2: CLIENT DETAIL SCREEN (Image 3) */}
         {currentView === 'client-detail' && (
-          <ClientDetailPage
-            client={currentClient}
-            onBack={() => {
-              setCurrentView('overview');
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
-            onPrepareBrief={(client) => {
-              setActiveBriefClient(client);
-              setIsBriefModalOpen(true);
-            }}
-            onViewSourceData={() => setIsSourceDataModalOpen(true)}
-            onSelectAnotherClient={handleSelectClient}
-            allClients={clients}
-          />
+          <>
+            {isDossierLoading && <div className="mx-6 sm:mx-10 mt-5 text-[12px] text-[#666666]">Loading client dossier and advisory insights…</div>}
+            {dossierLoadError && <div className="mx-6 sm:mx-10 mt-5 border border-amber-200 bg-amber-50 px-4 py-3 text-[12px] text-amber-900">Could not refresh this dossier: {dossierLoadError}</div>}
+            {currentClient && <ClientDetailPage
+              client={currentClient}
+              onBack={() => {
+                setCurrentView('overview');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              onPrepareBrief={(client) => {
+                setActiveBriefClient(client);
+                setIsBriefModalOpen(true);
+              }}
+              onViewSourceData={() => setIsSourceDataModalOpen(true)}
+              onRunStressTests={() => {
+                setCurrentView('stress-workbench');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              onSelectAnotherClient={handleSelectClient}
+              allClients={clients}
+            />}
+          </>
         )}
 
         {/* VIEW 3: FULL CLIENTS LIST DIRECTORY */}
@@ -384,6 +449,28 @@ export default function App() {
               onSearchChange={setSearchQuery}
             />
           </div>
+        )}
+
+        {/* VIEW 4: STRESS TEST WORKBENCH */}
+        {currentView === 'stress-workbench' && (
+          <StressWorkbenchPage
+            mode={selectedClientId ? 'client' : 'book-wide'}
+            clientId={selectedClientId || null}
+            allClients={clients}
+            onBack={() => {
+              if (selectedClientId) {
+                setCurrentView('client-detail');
+              } else {
+                setCurrentView('overview');
+              }
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            onSelectClient={(clientId) => {
+              setSelectedClientId(clientId);
+              setCurrentView('stress-workbench');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+          />
         )}
       </main>
 

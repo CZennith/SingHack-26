@@ -28,7 +28,7 @@ from typing import Any
 
 import pandas as pd
 
-from .stress_types import NAMED_SCENARIOS
+from stress_types import NAMED_SCENARIOS
 
 # ---------------------------------------------------------------------------
 # Constants

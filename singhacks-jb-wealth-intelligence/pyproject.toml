@@ -13,5 +13,5 @@ dependencies = ["duckdb>=1.0"]
 test = ["pytest>=8.0"]
 
 [tool.pytest.ini_options]
-pythonpath = ["."]
-testpaths = ["tests"]
+pythonpath = [".", "backend"]
+testpaths = ["backend/tests"]

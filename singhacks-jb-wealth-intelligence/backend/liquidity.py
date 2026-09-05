@@ -22,8 +22,8 @@ from typing import Any
 
 import pandas as pd
 
-from .stress_test import _build_fx_rates, _number, _text, to_usd
-from .stress_types import LiquidityResult
+from stress_test import _build_fx_rates, _number, _text, to_usd
+from stress_types import LiquidityResult
 
 # ---------------------------------------------------------------------------
 # Constants
