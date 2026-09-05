@@ -9,7 +9,7 @@ import json
 
 import pandas as pd
 
-from data_repository import (
+from .data_repository import (
     get_client,
     get_client_cash_needs,
     get_client_commitments,

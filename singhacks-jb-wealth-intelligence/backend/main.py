@@ -1,5 +1,8 @@
+import json
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 app = FastAPI()
@@ -142,7 +145,7 @@ class ClientInsightsResponse(BaseModel):
     advisory: StrategicMatrix
 
 
-from data_repository import get_clients as get_csv_clients
+from .data_repository import get_clients as get_csv_clients
 
 def fetch_client_profiles() -> list[ClientProfile]:
     clients = get_csv_clients()
@@ -168,7 +171,7 @@ def fetch_client_dossier(client_id: str) -> ClientDossierResponse:
     and allocation, retrieve the historical trajectory, and return a populated
     ClientDossierResponse. Raise a 404 when the client does not exist.
     """
-    from client_data_service import build_client_dossier
+    from .client_data_service import build_client_dossier
 
     return ClientDossierResponse.model_validate(build_client_dossier(client_id))
 
@@ -179,7 +182,7 @@ def fetch_client_insights(client_id: str) -> ClientInsightsResponse:
     The generated payload may include a client profile summary as well as
     insights. Raise a 404 when the client does not exist.
     """
-    from llm_service import build_client_insights
+    from .llm_service import build_client_insights
 
     return ClientInsightsResponse.model_validate(build_client_insights(client_id))
 
@@ -210,3 +213,32 @@ def get_client_insights(client_id: str) -> ClientInsightsResponse:
             status_code=501,
             detail="Client insight generation has not been implemented yet.",
         ) from error
+
+
+@app.get("/clients/{client_id}/insights/stream")
+def stream_client_insights(client_id: str) -> StreamingResponse:
+    """Send each AI insight section to the browser as it completes."""
+    from llm_service import stream_client_insight_sections
+
+    def events():
+        try:
+            yield "event: started\ndata: {}\n\n"
+            for section, payload in stream_client_insight_sections(client_id):
+                if section == "heartbeat":
+                    yield ": keep-alive\n\n"
+                    continue
+                message = json.dumps({"section": section, "payload": payload})
+                yield f"event: insight\ndata: {message}\n\n"
+            yield "event: complete\ndata: {}\n\n"
+        except LookupError as error:
+            yield f"event: error\ndata: {json.dumps({'message': str(error)})}\n\n"
+        except Exception:
+            # Do not expose model/provider internals to the browser. Server
+            # logging retains the original exception through FastAPI/Uvicorn.
+            yield "event: error\ndata: {\"message\": \"Unable to generate AI insights.\"}\n\n"
+
+    return StreamingResponse(
+        events(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )

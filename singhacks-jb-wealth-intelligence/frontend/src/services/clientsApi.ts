@@ -29,6 +29,13 @@ export interface ClientInsights {
   advisory: ClientDossier['advisory'];
 }
 
+type InsightSection = keyof ClientInsights;
+
+interface InsightStreamEvent {
+  section: InsightSection;
+  payload: ClientInsights[InsightSection];
+}
+
 const initialsFor = (name: string) => name.trim().split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase();
 const riskLevelFor = (score: number): RiskSeverity => score >= 75 ? 'CRITICAL' : score >= 50 ? 'HIGH' : score >= 25 ? 'MEDIUM' : 'LOW';
 
@@ -79,4 +86,50 @@ export async function fetchClientDossier(clientId: string, signal?: AbortSignal)
 
 export async function fetchClientInsights(clientId: string, signal?: AbortSignal): Promise<ClientInsights> {
   return getJson<ClientInsights>(`/clients/${encodeURIComponent(clientId)}/insights`, signal);
+}
+
+/** Open the progressive insight stream. Returns a function that closes it. */
+export function streamClientInsights(
+  clientId: string,
+  handlers: {
+    onInsight: (section: InsightSection, payload: ClientInsights[InsightSection]) => void;
+    onError: (message: string) => void;
+  },
+): () => void {
+  const source = new EventSource(
+    `${connectorConfig.apiBaseUrl}/clients/${encodeURIComponent(clientId)}/insights/stream`,
+  );
+  let finished = false;
+
+  source.addEventListener('insight', (event) => {
+    try {
+      const { section, payload } = JSON.parse((event as MessageEvent<string>).data) as InsightStreamEvent;
+      if (!['profileSummary', 'portfolioExplanation', 'advisory'].includes(section)) {
+        throw new Error('Unknown insight section.');
+      }
+      handlers.onInsight(section, payload);
+    } catch {
+      finished = true;
+      source.close();
+      handlers.onError('Client service returned an invalid AI insight stream.');
+    }
+  });
+  source.addEventListener('error', (event) => {
+    finished = true;
+    source.close();
+    try {
+      const message = JSON.parse((event as MessageEvent<string>).data).message;
+      handlers.onError(typeof message === 'string' ? message : 'Unable to load AI insights.');
+    } catch {
+      handlers.onError('Unable to load AI insights.');
+    }
+  });
+  source.addEventListener('complete', () => {
+    finished = true;
+    source.close();
+  });
+
+  return () => {
+    if (!finished) source.close();
+  };
 }

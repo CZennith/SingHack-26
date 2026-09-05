@@ -21,8 +21,9 @@ interface ClientDetailPageProps {
 }
 
 const AiGeneratingPlaceholder: React.FC<{ label: string; compact?: boolean }> = ({ label, compact = false }) => (
-  <div className={`ai-thinking relative overflow-hidden border border-[#e4e7e5] bg-[#fbfcfb] ${compact ? 'mt-5 px-4 py-4' : 'px-5 py-8 sm:px-7 sm:py-11'}`}>
-    <div className="ai-thinking-glow absolute left-1/2 top-1/2 h-32 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#cfe4df]/45 blur-3xl" />
+  <div className={`ai-thinking relative overflow-hidden border border-[#d8e5e1] bg-[#f9fcfb] ${compact ? 'mt-5 px-4 py-4' : 'px-5 py-8 sm:px-7 sm:py-11'}`}>
+    <div className="ai-thinking-glow absolute left-1/2 top-1/2 h-40 w-[26rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#9ecfc4]/60 blur-3xl" />
+    <div className="ai-thinking-glow-secondary absolute left-1/2 top-1/2 h-20 w-52 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/90 blur-2xl" />
     <div className={`relative ${compact ? 'flex items-center gap-4' : 'mx-auto max-w-sm text-center'}`}>
       <div className={compact ? 'shrink-0' : ''}>
         <p className="ai-thinking-label text-[10px] font-medium uppercase tracking-[0.18em] text-[#477a71]">Synthesising insight</p>

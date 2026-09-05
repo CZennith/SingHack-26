@@ -1,1 +1,2 @@
-pandas>=2.0
+# Keep Vercel's root-level dependency discovery aligned with the FastAPI app.
+-r backend/requirements.txt
