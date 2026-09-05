@@ -153,25 +153,24 @@ def get_clients() -> list[ClientProfile]:
 
 
 def fetch_client_dossier(client_id: str) -> ClientDossierResponse:
-    """Build one client dossier from clients, portfolios, holdings and facilities.
+    """Return deterministic client facts from clients, portfolios and facilities.
 
     TODO: resolve ``client_id`` from clients.csv, calculate the portfolio values
     and allocation, retrieve the historical trajectory, and return a populated
     ClientDossierResponse. Raise a 404 when the client does not exist.
     """
-    from dossier_service import build_client_dossier
+    from client_data_service import build_client_dossier
 
     return ClientDossierResponse.model_validate(build_client_dossier(client_id))
 
 
 def fetch_client_insights(client_id: str) -> ClientInsightsResponse:
-    """Return the cached/rules-and-LLM-generated advisory insights for a client.
+    """Return LLM-generated advisory content grounded in deterministic facts.
 
-    TODO: construct a source-grounded input from the computed dossier, RM notes,
-    mandate checks, events, cash needs and commitments; then retrieve or create
-    validated structured insight output. Raise a 404 when the client does not exist.
+    The generated payload may include a client profile summary as well as
+    insights. Raise a 404 when the client does not exist.
     """
-    from insights_service import build_client_insights
+    from llm_service import build_client_insights
 
     return ClientInsightsResponse.model_validate(build_client_insights(client_id))
 
