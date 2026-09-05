@@ -22,6 +22,7 @@ export type AssetClass =
   | 'Commodities'
   | 'Structured Products';
 
+/** Scenario config sent to / received from the API (shocks only, no metadata). */
 export interface ScenarioConfig {
   id: NamedScenarioId | 'custom';
   label: string;
@@ -29,38 +30,61 @@ export interface ScenarioConfig {
   sector_overrides?: Record<string, number>;
 }
 
-export const NAMED_SCENARIOS: Record<NamedScenarioId, ScenarioConfig> = {
+/**
+ * Full named-scenario definition stored on the frontend — mirrors the Python
+ * NAMED_SCENARIOS dict in stress_types.py, including metadata fields.
+ */
+export interface NamedScenarioDefinition {
+  /** Human-readable label shown in the UI. */
+  label: string;
+  /** Optional severity tag (e.g. "Severe"). Only present on some scenarios. */
+  severity?: string;
+  /** Asset-class level shocks (shock_pct, −100 to +100). */
+  shocks: Partial<Record<AssetClass, number>>;
+  /** Sector-level overrides — take precedence over asset-class shocks. */
+  sector_overrides: Record<string, number>;
+  /** ISO date string reference into the event log, or null if not yet materialised. */
+  event_log_ref: string | null;
+}
+
+/**
+ * Typed constant mirroring the Python NAMED_SCENARIOS dict.
+ * All values include the full definition so the ScenarioPicker can populate
+ * the shock table without a round-trip to the backend.
+ */
+export const NAMED_SCENARIOS: Record<NamedScenarioId, NamedScenarioDefinition> = {
   'hormuz-escalation': {
-    id: 'hormuz-escalation',
     label: 'Strait of Hormuz Escalation',
+    severity: 'Severe',
     shocks: { Commodities: 40, Equity: -8, 'Fixed Income': 3, Alternatives: 15 },
     sector_overrides: { Airlines: -20, 'Information Technology': 0, Energy: 40 },
+    event_log_ref: '2026-02-28',
   },
   'hormuz-de-escalation': {
-    id: 'hormuz-de-escalation',
     label: 'Hormuz Reopens / De-escalation',
     shocks: { Commodities: -25, Equity: 5, Alternatives: -8 },
     sector_overrides: { Airlines: 12, Energy: -25 },
+    event_log_ref: null,
   },
   'tech-selloff': {
-    id: 'tech-selloff',
     label: 'Tech Sector Selloff',
     shocks: { Equity: -8 },
     sector_overrides: { 'Information Technology': -20 },
+    event_log_ref: '2026-06-15',
   },
   'rate-shock': {
-    id: 'rate-shock',
     label: 'Rate Shock — Fed Hikes',
     shocks: { 'Fixed Income': -12, Equity: -8 },
     sector_overrides: {},
+    event_log_ref: null,
   },
   'gold-consolidation': {
-    id: 'gold-consolidation',
     label: 'Gold Consolidation',
     shocks: { Alternatives: -15, Commodities: -15 },
     sector_overrides: {},
+    event_log_ref: '2026-01-28',
   },
-};
+} as const;
 
 // ---------------------------------------------------------------------------
 // Macro shock results
@@ -205,6 +229,7 @@ export interface StressRunResult {
   scenario: { id: string; label: string };
   macro_shock: MacroShockResult;
   ltv_stress: LTVStressResult;
+  look_through: LookThroughResult;
   liquidity: LiquidityResult;
   narrative: string;
   recommendations: RMRecommendation[];
