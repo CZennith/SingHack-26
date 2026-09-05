@@ -1,125 +1,181 @@
-"""LLM-owned language for the client detail page.
+"""LLM-owned copy for the client detail page.
 
-The LLM explains deterministic facts; it never calculates values, determines
-prices, or invents events. ``client_data_service.build_client_llm_context`` is
-the only approved input boundary for a future model provider.
+Each generator represents one independently configurable LLM call. The
+deterministic client-data service is the only permitted source of model input;
+the FastAPI response models validate the returned dictionaries before they are
+sent to the frontend.
 """
 
-from typing import Any, Mapping, TypedDict
+import json
+from typing import Any
+import datetime 
 
 from client_data_service import build_client_llm_context
 
+from pathlib import Path
+from dotenv import load_dotenv
+from openai import OpenAI
+from pydantic import BaseModel
 
-class ProfileSummaryOutput(TypedDict):
-    """Optional Section 01 addition; it does not replace the factual bio."""
+load_dotenv(Path(__file__).with_name(".env"))
 
-    generatedAt: str
-    title: str
-    summary: str
-
-
-class PortfolioExplanationOutput(TypedDict):
-    """Section 03: retrospective portfolio attribution, not advice."""
-
-    generatedAt: str
-    title: str
-    overview: str
-    whatMovedAndWhy: str
-    whatToWatch: str
+openai_client = OpenAI()  
 
 
-class StrategicPointOutput(TypedDict):
-    title: str
-    description: str
+def generate_profile_summary(context: dict[str, Any]) -> dict | None:
+    """Call the profile-summary LLM with factual client context only.
 
-
-class ProactiveAdviceOutput(TypedDict):
-    """Section 04: forward-looking, RM-reviewed risks and opportunities."""
-
-    generatedAt: str
-    risks: list[StrategicPointOutput]
-    opportunities: list[StrategicPointOutput]
-
-
-class ClientInsightsOutput(TypedDict):
-    profileSummary: ProfileSummaryOutput | None
-    portfolioExplanation: PortfolioExplanationOutput
-    advisory: ProactiveAdviceOutput
-
-
-# Every prompt must be built only from these sourced context groups. The model
-# may describe relationships between them but may not add unsupported facts.
-ALLOWED_CONTEXT = (
-    "client",       # factual profile, objectives, risk profile
-    "dossier",      # calculated valuation, allocation, trajectory, LTV
-    "holdings",     # dated position-level values and exposures
-    "portfolios",   # mandate and portfolio metadata
-    "facilities",   # drawn amount, LTV, headroom
-    "cash_needs",   # planned client cash requirements
-    "commitments",  # uncalled commitments and expected windows
-    "transactions", # known client activity
-    "rm_notes",     # relationship-manager context
-)
-
-
-def generate_profile_summary(client_facts: Mapping[str, Any]) -> ProfileSummaryOutput | None:
-    """Generate the optional AI addition to Section 01.
-
-    The model should summarise client context, objectives, and the current
-    situation. It must not rewrite the factual ``about.bio`` or infer personal
-    facts that are absent from the controlled context.
+    This optional section summarises the client's stated objectives and current
+    situation. It must not infer personal facts missing from ``context``.
     """
-    client = client_facts["client"]
+    client = context["client"]
+
+    #print(f"Profile summary: {context["profile_summary"]}")
+
+    instructions = (
+        """
+        You are an assistant for a private-banking Relationship Manager.
+
+Write a concise, factual client context summary based only on the supplied JSON.
+
+Requirements:
+- Use only information explicitly present in the JSON.
+- Summarize the RM notes.
+- Highlight any key points for the RM to take note. 
+- Do not calculate figures or introduce recommendations, market views, products, securities, or events.
+- Do not mention missing fields or describe your process.
+- Use professional, neutral language suitable for an internal RM briefing.
+- Write one short paragraph.
+- Keep the response below 150 words.
+        """
+    )
+    output = openai_client.responses.create(
+        model="gpt-5.6-terra",
+        instructions=instructions,
+        input=json.dumps(context["profile_summary"], ensure_ascii=False, separators=(",", ":")),
+    )
+
+    print("**---**")
+    print(f"Ran LLM for profile summary for {client['client_name']}. Tokens used: {output.usage.total_tokens}")
+    print(f"LLM output: {output.output_text}")
+    print("**---**")
+
     return {
-        "generatedAt": "2026-08-26 09:30 SGT",
+        "generatedAt": datetime.datetime.now().strftime("%Y-%m-%d %H:%M SGT"),
         "title": "Client context summary",
-        "summary": f"Placeholder AI summary for {client['client_name']}. Stated objective: {client['objectives']}",
+        "summary": (
+            output.output_text
+            if output.output_text
+            else "No summary generated. Please check the model response."
+        ),
     }
 
 
-def generate_portfolio_explanation(client_facts: Mapping[str, Any]) -> PortfolioExplanationOutput:
-    """Generate Section 03: explain what the portfolio did and why.
+def generate_portfolio_explanation(context: dict[str, Any]) -> dict:
+    """Call the portfolio-explanation LLM with sourced, dated facts.
 
-    Required model content: portfolio return/change, material holdings or
-    exposures that contributed, relevant controlled market/geopolitical events,
-    and a concise explanation a client can understand. Do not recommend trades
-    in this section.
+    This is retrospective attribution only: explain portfolio movement and its
+    supported causes, without recommending trades.
     """
-    _ = client_facts
+    _ = context
+
+    class PortfolioExplanation(BaseModel):
+        overview: str
+        whatMovedAndWhy: str
+        whatToWatch: str
+
+    response = openai_client.responses.parse(
+        model="gpt-5.6-terra",
+        #reasoning={"effort": "medium"},
+        instructions="""
+    Explain the portfolio in clear, client-friendly language.
+
+    Use only the supplied input. For events in 2026, event_log_2026 is
+    authoritative and overrides your prior knowledge. Connect an event to a
+    holding only when the event transmission channel and the holding's exposure
+    metadata support that link.
+
+    Do not present correlation as certainty. If quantity_changed is true, do not
+    attribute the full value change to market performance. Do not recommend trades.
+    """,
+        input=json.dumps(
+            context["portfolio_explanation"],
+            ensure_ascii=False,
+            separators=(",", ":"),
+        ),
+        text_format=PortfolioExplanation,
+    )
+    print("**---**")
+    print(f"Ran LLM for portfolio explanation for {context['client']['client_name']}. Tokens used: {response.usage.total_tokens}")
+    print(f"LLM output: {response.output_text}")
+    print("**---**")
+    
+    output = response.output_parsed
     return {
-        "generatedAt": "2026-08-26 09:30 SGT",
-        "title": "Portfolio movement explanation pending",
-        "overview": "A future model will connect dated portfolio movements to material holdings and controlled market events.",
-        "whatMovedAndWhy": "This section attributes what moved, why it moved, and how the move affected this portfolio.",
-        "whatToWatch": "Review the next valuation snapshot and new events affecting material holdings.",
+        "generatedAt": datetime.datetime.now().strftime("%Y-%m-%d %H:%M SGT"),
+        "title": "Intelligent Portfolio Explanation",
+        "overview": (
+            output.overview
+            if output.overview
+            else "No overview generated. Please check the model response."
+        ),
+        "whatMovedAndWhy": (
+            output.whatMovedAndWhy
+            if output.whatMovedAndWhy
+            else "No explanation generated. Please check the model response."
+        ),
+        "whatToWatch": (
+            output.whatToWatch
+            if output.whatToWatch
+            else "No watchlist generated. Please check the model response."
+        ),
     }
 
 
-def generate_proactive_advice(client_facts: Mapping[str, Any]) -> ProactiveAdviceOutput:
-    """Generate Section 04: forward-looking, RM-reviewed advice.
+def generate_proactive_advice(context: dict[str, Any]) -> dict:
+    """Call the advisory LLM for RM-reviewed risks and opportunities.
 
-    Required model content: client-specific concentration, liquidity, currency,
-    mandate and collateral risks; event-driven opportunities; and scenario or
-    stress-test implications when supplied in the context. Each point must be
-    traceable to deterministic inputs and framed as an RM-reviewed suggestion.
+    Advice must be traceable to deterministic inputs and framed as a
+    discussion item for Relationship Manager review.
     """
-    _ = client_facts
+    _ = context
+
+    # TODO: Replace with the advisory model call and JSON response.
     return {
-        "generatedAt": "2026-08-26 09:30 SGT",
-        "risks": [{"title": "Review required", "description": "Confirm exposures, liquidity needs, and facility headroom with the RM."}],
-        "opportunities": [{"title": "Planning discussion", "description": "Prepare an RM-reviewed proposal aligned to stated objectives."}],
+        "generatedAt": datetime.datetime.now().strftime("%Y-%m-%d %H:%M SGT"),
+        "risks": [
+            {
+                "title": "Review required",
+                "description": (
+                    "Confirm exposures, liquidity needs, and facility headroom "
+                    "with the RM."
+                ),
+            }
+        ],
+        "opportunities": [
+            {
+                "title": "Planning discussion",
+                "description": (
+                    "Prepare an RM-reviewed proposal aligned to stated objectives."
+                ),
+            }
+        ],
     }
 
 
-def generate_client_advisory(client_facts: Mapping[str, Any]) -> ClientInsightsOutput:
-    """Compose the three distinct LLM outputs consumed by the frontend."""
+def build_client_insights(client_id: str) -> dict:
+    """Build context once, then make the three section calls sequentially."""
+    context = build_client_llm_context(client_id)
+
     return {
-        "profileSummary": generate_profile_summary(client_facts),
-        "portfolioExplanation": generate_portfolio_explanation(client_facts),
-        "advisory": generate_proactive_advice(client_facts),
+        "profileSummary": generate_profile_summary(context),
+        "portfolioExplanation": generate_portfolio_explanation(context),
+        "advisory": generate_proactive_advice(context),
     }
 
 
-def build_client_insights(client_id: str) -> ClientInsightsOutput:
-    """Build sourced context, then return validated LLM-owned display content."""
-    return generate_client_advisory(build_client_llm_context(client_id))
+
+if __name__ == "__main__":
+    client_id = "CL-0001"
+    insights = build_client_insights(client_id)
+    print(json.dumps(insights, indent=2))
