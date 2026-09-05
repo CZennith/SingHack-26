@@ -363,3 +363,77 @@ fixture-backed while the integration boundaries are being developed. Connector c
 team workflow are documented in [`docs/EDITING_PROJECT.md`](docs/EDITING_PROJECT.md); the Python
 side contains interfaces only in [`backend/connectors/`](backend/connectors/), not running backend
 services.
+
+## Local DuckDB database
+
+This repository includes a reproducible ingestion pipeline that builds only the raw landing layer,
+typed normalized tables, and integrity validation. It does not implement investment analytics,
+portfolio calculations, recommendations, LLM integration, or analytical views.
+
+### Installation and commands
+
+From this directory:
+
+```bash
+python3 -m pip install -r requirements.txt
+python3 -m src.build_database \
+  --data-dir "$(pwd)/data" \
+  --db-path "db/wealth.duckdb"
+python3 -m src.validate_database --db-path "db/wealth.duckdb"
+python3 -m pytest
+```
+
+The database is written to [`db/wealth.duckdb`](db/wealth.duckdb). The source files are read from
+[`data/`](data/) and are never modified. The build creates a fresh temporary DuckDB file and swaps
+it into place only after the complete build succeeds, so repeated builds are idempotent for the
+logical data contents.
+
+### Tables and source mapping
+
+The raw tables mirror the source column names and keep source values as text, retaining CSV blank
+fields as empty strings and JSON nulls as SQL `NULL`:
+
+| Raw table | Source |
+|---|---|
+| `raw_clients` | `clients.csv` |
+| `raw_commitments` | `commitments.csv` |
+| `raw_credit_facilities` | `credit_facilities.csv` |
+| `raw_event_log` | `event_log.csv` |
+| `raw_holdings` | `holdings.csv` |
+| `raw_instruments` | `instruments.csv` |
+| `raw_mandates` | `mandates.csv` |
+| `raw_market_context` | `market_context.csv` |
+| `raw_planned_cash_needs` | `planned_cash_needs.csv` |
+| `raw_portfolios` | `portfolios.csv` |
+| `raw_transactions` | `transactions.csv` |
+| `raw_rm_notes` | `rm_notes.json` |
+
+`ingestion_metadata` records each source filename, SHA-256, load timestamp, and loaded row count.
+
+The curated tables are typed and use snake_case:
+
+- `clients`, `portfolios`, `instruments`, `mandate_rules`
+- `holdings_snapshots`, `transactions`, `commitments`
+- `credit_facilities`, `facility_snapshots`, `planned_cash_needs`
+- `market_context`, `event_log`, `rm_notes`
+- `portfolio_valuations`, `instrument_prices`
+
+Dates are `DATE`, timestamps are `TIMESTAMP`, monetary and quantitative fields are `DECIMAL`, and
+identifiers and descriptive fields are text. Source blanks in nullable typed columns become SQL
+`NULL`; no numeric value is rounded during ingestion. In particular, all 65 transactions whose
+source `instrument_id` is blank remain present with a NULL curated `instrument_id`.
+
+The five wide portfolio AUM columns, five instrument price columns, and five dated facility groups
+are expanded into one row per source entity and snapshot date. The expected snapshot dates are
+`2025-12-31`, `2026-02-27`, `2026-03-31`, `2026-06-30`, and `2026-08-26`. Holdings remain at their
+source grain of snapshot date × portfolio × instrument.
+
+Primary and composite keys are declared in the curated DDL. The validator independently checks
+counts, uniqueness, dates, types, null preservation, raw-to-curated representative fidelity, and
+all required parent-child relationships for orphan rows. It also checks that the database contains
+no analytical views.
+
+Known limitations: this is a local, single-file DuckDB database; it intentionally has no external
+connectors, analytical calculations, derived risk metrics, or recommendation logic. Raw CSV values
+are stored as text by design so that typed parsing failures stop the build with source filename,
+column, row, value, and parsing error details.
