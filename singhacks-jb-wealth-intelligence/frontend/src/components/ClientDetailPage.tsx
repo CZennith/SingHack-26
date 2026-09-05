@@ -31,13 +31,25 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
   const currentIndex = allClients.findIndex((c) => c.id === client.id);
   const prevClient = currentIndex > 0 ? allClients[currentIndex - 1] : null;
   const nextClient = currentIndex < allClients.length - 1 ? allClients[currentIndex + 1] : null;
+  const points = client.portfolio.trajectory.points;
+  const trajectoryPath = points.length > 1
+    ? points.map((point, index) => {
+        const values = points.map((item) => item.value);
+        const min = Math.min(...values);
+        const max = Math.max(...values);
+        const x = 10 + (480 * index) / (points.length - 1);
+        const y = max === min ? 60 : 18 + ((max - point.value) / (max - min)) * 77;
+        return `${index === 0 ? 'M' : 'L'} ${x} ${y}`;
+      }).join(' ')
+    : '';
+  const topHoldingsPercent = client.portfolio.topHoldings.reduce((total, holding) => total + holding.percentage, 0);
 
   return (
     <div id="client-detail-view" className="w-full min-h-screen bg-[#faf9f6]">
       {/* Top Floating RM Profile Tag (as in Image 3 top right) */}
       <div className="hidden md:flex fixed top-4 right-8 z-20 items-center gap-3 bg-[#faf9f6]/90 backdrop-blur-xs py-1 px-2 border border-[#e8e5e0]">
         <div className="text-right">
-          <div className="text-[12px] font-medium text-[#121212] leading-none">Priscilla Ong</div>
+          <div className="text-[12px] font-medium text-[#121212] leading-none">{client.relationshipManager?.name ?? 'Relationship manager pending'}</div>
           <div className="text-[10px] text-[#767676] mt-0.5 leading-none">Relationship Manager</div>
         </div>
         <div className="w-7 h-7 rounded-full border border-[#dedbd5] bg-white flex items-center justify-center text-[#121212] shadow-2xs">
@@ -110,7 +122,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
             </span>
             <span className="text-[11px] text-[#55534e] flex items-center gap-1.5 font-mono">
               <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
-              Fixture snapshot · 26 Aug 2026
+              Snapshot · {client.asOf ?? 'pending'}
             </span>
           </div>
 
@@ -148,7 +160,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
               SECTION 02 · CUSTODY &amp; LIQUIDITY
             </span>
             <span className="text-[11px] text-[#666666] font-mono">
-              Valuation as of 16:00 EST
+              Valuation as of {client.valuationAsOf ?? client.asOf ?? 'pending'}
             </span>
           </div>
 
@@ -298,32 +310,32 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
                     </defs>
 
                     {/* Area fill */}
-                    <path
-                      d="M 10 70 C 60 70, 90 65, 140 68 C 180 70, 210 95, 250 95 C 290 95, 330 65, 380 45 C 430 25, 460 20, 490 18 L 490 115 L 10 115 Z"
+                    {trajectoryPath && <path
+                      d={`${trajectoryPath} L 490 115 L 10 115 Z`}
                       fill={`url(#curveGrad-${client.id})`}
-                    />
+                    />}
 
                     {/* Curve stroke */}
-                    <path
-                      d="M 10 70 C 60 70, 90 65, 140 68 C 180 70, 210 95, 250 95 C 290 95, 330 65, 380 45 C 430 25, 460 20, 490 18"
+                    {trajectoryPath && <path
+                      d={trajectoryPath}
                       fill="none"
                       stroke="#1f1d1a"
                       strokeLinecap="round"
                       strokeWidth="1.75"
-                    />
+                    />}
 
                     {/* Trough Marker */}
-                    <circle
+                    {trajectoryPath && <circle
                       cx="250"
                       cy="95"
                       fill="#ffffff"
                       r="3.5"
                       stroke="#b33939"
                       strokeWidth="1.5"
-                    />
+                    />}
 
                     {/* Endpoint Marker */}
-                    <circle cx="490" cy="18" fill="#1f1d1a" r="3" />
+                    {trajectoryPath && <circle cx="490" cy="18" fill="#1f1d1a" r="3" />}
                   </svg>
 
                   {/* Chart labels beneath */}
@@ -347,7 +359,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
                   <span className="text-[10px] tracking-[0.12em] uppercase font-semibold text-[#55534e] font-mono">
                     TOP PORTFOLIO HOLDINGS
                   </span>
-                  <span className="text-[11px] text-[#8c887f] font-mono">77.9% of Total</span>
+                  <span className="text-[11px] text-[#8c887f] font-mono">{topHoldingsPercent.toFixed(1)}% of Total</span>
                 </div>
 
                 <div className="divide-y divide-[#f0eee9]">

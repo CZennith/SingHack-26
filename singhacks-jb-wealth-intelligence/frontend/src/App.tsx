@@ -16,20 +16,21 @@ import {
 import {
   currentRM,
   executiveBriefing,
-  placeholderClients,
 } from './data/placeholderData';
 import { ClientDossier, RiskSeverity } from './types';
-import { fetchClientDossiers } from './services/clientsApi';
+import { fetchClientDossier, fetchClientInsights, fetchClients } from './services/clientsApi';
 import { FileText, SlidersHorizontal, Sparkles } from 'lucide-react';
 
 export default function App() {
-  const [clients, setClients] = useState<ClientDossier[]>(placeholderClients);
+  const [clients, setClients] = useState<ClientDossier[]>([]);
   const [clientLoadError, setClientLoadError] = useState<string | null>(null);
+  const [dossierLoadError, setDossierLoadError] = useState<string | null>(null);
+  const [isDossierLoading, setIsDossierLoading] = useState(false);
   // Navigation & View State
   const [currentView, setCurrentView] = useState<'overview' | 'clients' | 'client-detail'>(
     'overview'
   );
-  const [selectedClientId, setSelectedClientId] = useState<string>('ravi-chandrasekaran');
+  const [selectedClientId, setSelectedClientId] = useState<string>('');
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   // Search & Filter State
@@ -53,7 +54,7 @@ export default function App() {
   useEffect(() => {
     const controller = new AbortController();
 
-    fetchClientDossiers(controller.signal)
+    fetchClients(controller.signal)
       .then((loadedClients) => {
         setClients(loadedClients);
         setSelectedClientId((currentId) =>
@@ -71,6 +72,26 @@ export default function App() {
 
     return () => controller.abort();
   }, []);
+
+  useEffect(() => {
+    if (currentView !== 'client-detail' || !selectedClientId) return;
+    const controller = new AbortController();
+    setIsDossierLoading(true);
+    setDossierLoadError(null);
+
+    Promise.all([fetchClientDossier(selectedClientId, controller.signal), fetchClientInsights(selectedClientId, controller.signal)])
+      .then(([dossier, insights]) => {
+        const hydratedClient = { ...dossier, ...insights };
+        setClients((previous) => previous.map((client) => client.id === selectedClientId ? hydratedClient : client));
+      })
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === 'AbortError') return;
+        setDossierLoadError(error instanceof Error ? error.message : 'Unable to load client dossier.');
+      })
+      .finally(() => setIsDossierLoading(false));
+
+    return () => controller.abort();
+  }, [currentView, selectedClientId]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -350,20 +371,24 @@ export default function App() {
 
         {/* VIEW 2: CLIENT DETAIL SCREEN (Image 3) */}
         {currentView === 'client-detail' && (
-          <ClientDetailPage
-            client={currentClient}
-            onBack={() => {
-              setCurrentView('overview');
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
-            onPrepareBrief={(client) => {
-              setActiveBriefClient(client);
-              setIsBriefModalOpen(true);
-            }}
-            onViewSourceData={() => setIsSourceDataModalOpen(true)}
-            onSelectAnotherClient={handleSelectClient}
-            allClients={clients}
-          />
+          <>
+            {isDossierLoading && <div className="mx-6 sm:mx-10 mt-5 text-[12px] text-[#666666]">Loading client dossier and advisory insights…</div>}
+            {dossierLoadError && <div className="mx-6 sm:mx-10 mt-5 border border-amber-200 bg-amber-50 px-4 py-3 text-[12px] text-amber-900">Could not refresh this dossier: {dossierLoadError}</div>}
+            {currentClient && <ClientDetailPage
+              client={currentClient}
+              onBack={() => {
+                setCurrentView('overview');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              onPrepareBrief={(client) => {
+                setActiveBriefClient(client);
+                setIsBriefModalOpen(true);
+              }}
+              onViewSourceData={() => setIsSourceDataModalOpen(true)}
+              onSelectAnotherClient={handleSelectClient}
+              allClients={clients}
+            />}
+          </>
         )}
 
         {/* VIEW 3: FULL CLIENTS LIST DIRECTORY */}
