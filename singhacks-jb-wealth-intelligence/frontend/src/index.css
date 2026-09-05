@@ -24,3 +24,52 @@ body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
 }
+
+@keyframes ai-breathe {
+  0%, 100% {
+    opacity: 0.28;
+    transform: translate(-50%, -50%) scale(0.8);
+  }
+  50% {
+    opacity: 0.9;
+    transform: translate(-50%, -50%) scale(1.08);
+  }
+}
+
+@keyframes ai-fade-copy {
+  0%, 100% { opacity: 0.42; }
+  50% { opacity: 1; }
+}
+
+@keyframes ai-form-line {
+  0%, 100% { opacity: 0.16; transform: scaleX(0.88); transform-origin: left; }
+  50% { opacity: 0.9; transform: scaleX(1); transform-origin: left; }
+}
+
+.ai-thinking-glow {
+  animation: ai-breathe 2.8s ease-in-out infinite;
+}
+
+.ai-thinking-label {
+  animation: ai-fade-copy 2.8s ease-in-out infinite;
+}
+
+.ai-thinking-line {
+  animation: ai-form-line 2.8s ease-in-out infinite;
+}
+
+.ai-thinking-line-delayed {
+  animation-delay: 0.35s;
+}
+
+.ai-thinking-line-late {
+  animation-delay: 0.7s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-thinking-glow,
+  .ai-thinking-label,
+  .ai-thinking-line {
+    animation: none;
+  }
+}

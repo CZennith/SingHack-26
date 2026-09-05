@@ -9,6 +9,7 @@ sent to the frontend.
 import json
 from typing import Any
 import datetime 
+from concurrent.futures import ThreadPoolExecutor
 
 from client_data_service import build_client_llm_context
 
@@ -202,14 +203,26 @@ a promise of outcome. Do not recommend named securities or products.
 
 
 def build_client_insights(client_id: str) -> dict:
-    """Build context once, then make the three section calls sequentially."""
+    """Build context once, then generate the independent sections concurrently.
+
+    Each generator receives the same immutable, deterministic context and does
+    not consume another generator's output. A small, fixed pool prevents one
+    client request from creating unbounded concurrent model calls.
+    """
     context = build_client_llm_context(client_id)
 
-    return {
-        "profileSummary": generate_profile_summary(context),
-        "portfolioExplanation": generate_portfolio_explanation(context),
-        "advisory": generate_proactive_advice(context),
-    }
+    with ThreadPoolExecutor(max_workers=3, thread_name_prefix="client-insight") as executor:
+        profile_summary = executor.submit(generate_profile_summary, context)
+        portfolio_explanation = executor.submit(generate_portfolio_explanation, context)
+        advisory = executor.submit(generate_proactive_advice, context)
+
+        # Calling result in a stable order preserves the public response shape
+        # and propagates a generation failure as the endpoint's normal error.
+        return {
+            "profileSummary": profile_summary.result(),
+            "portfolioExplanation": portfolio_explanation.result(),
+            "advisory": advisory.result(),
+        }
 
 
 

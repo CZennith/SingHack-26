@@ -20,6 +20,23 @@ interface ClientDetailPageProps {
   allClients: ClientDossier[];
 }
 
+const AiGeneratingPlaceholder: React.FC<{ label: string; compact?: boolean }> = ({ label, compact = false }) => (
+  <div className={`ai-thinking relative overflow-hidden border border-[#e4e7e5] bg-[#fbfcfb] ${compact ? 'mt-5 px-4 py-4' : 'px-5 py-8 sm:px-7 sm:py-11'}`}>
+    <div className="ai-thinking-glow absolute left-1/2 top-1/2 h-32 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#cfe4df]/45 blur-3xl" />
+    <div className={`relative ${compact ? 'flex items-center gap-4' : 'mx-auto max-w-sm text-center'}`}>
+      <div className={compact ? 'shrink-0' : ''}>
+        <p className="ai-thinking-label text-[10px] font-medium uppercase tracking-[0.18em] text-[#477a71]">Synthesising insight</p>
+        <p className="mt-2 text-[12.5px] leading-relaxed text-[#6b716f]">Generating {label} from the latest client data</p>
+      </div>
+      {!compact && <div className="mt-6 space-y-2.5" aria-label="Generating">
+        <div className="ai-thinking-line h-px w-full bg-[#9ec8be]" />
+        <div className="ai-thinking-line ai-thinking-line-delayed h-px w-[78%] bg-[#b7d8d0]" />
+        <div className="ai-thinking-line ai-thinking-line-late h-px w-[91%] bg-[#d0e4df]" />
+      </div>}
+    </div>
+  </div>
+);
+
 export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
   client,
   onBack,
@@ -134,7 +151,9 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
               {client.about.bio}
             </p>
 
-            {client.profileSummary && (
+            {client.profileSummary?.generatedAt === 'Pending' ? (
+              <AiGeneratingPlaceholder label="a client context summary" compact />
+            ) : client.profileSummary && (
               <div className="mt-5 border-l-2 border-[#2c6e6a] bg-[#f9f8f5] px-4 py-3">
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-[12.5px] font-medium text-[#121212]">{client.profileSummary.title}</span>
@@ -407,7 +426,10 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
             </span>
           </div>
 
-          {/* Accent Border Synthesis Card */}
+          {client.portfolioExplanation.generatedAt === 'Pending' ? (
+            <AiGeneratingPlaceholder label="the portfolio explanation" />
+          ) : (
+          /* Accent Border Synthesis Card */
           <div className="bg-white border border-[#e8e5e0] border-l-[3px] border-l-[#121212] p-6 sm:p-7 space-y-5 shadow-2xs">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -425,27 +447,44 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
               {client.portfolioExplanation.overview}
             </p>
 
-            {/* Sub-cards: Why it Matters & Monitor */}
+            {/* Evidence and monitoring points */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
-              <div className="bg-[#f9f8f5] border border-[#e8e5e0] p-4">
-                <div className="text-[10px] tracking-[0.12em] uppercase font-semibold text-[#55534e] mb-1.5 font-mono">
+              <div className="bg-[#f9f8f5] border border-[#e8e5e0] p-4 space-y-4">
+                <div className="text-[10px] tracking-[0.12em] uppercase font-semibold text-[#55534e] pb-2 border-b border-[#e8e5e0] font-mono">
                   WHAT MOVED & WHY
                 </div>
-                <p className="text-[12.5px] leading-relaxed text-[#55534e]">
-                  {client.portfolioExplanation.whatMovedAndWhy}
-                </p>
+                <ul className="space-y-3.5 text-[12.5px] leading-relaxed text-[#55534e]">
+                  {client.portfolioExplanation.whatMovedAndWhy.map((point, index) => (
+                    <li key={`${point.title}-${index}`} className="flex items-start gap-2.5">
+                      <span className="text-[#55534e] text-xs mt-0.5 font-bold">•</span>
+                      <span>
+                        <strong className="font-medium text-[#121212]">{point.title}: </strong>
+                        {point.description}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
               </div>
 
-              <div className="bg-[#f9f8f5] border border-[#e8e5e0] p-4">
-                <div className="text-[10px] tracking-[0.12em] uppercase font-semibold text-[#55534e] mb-1.5 font-mono">
+              <div className="bg-[#f9f8f5] border border-[#e8e5e0] p-4 space-y-4">
+                <div className="text-[10px] tracking-[0.12em] uppercase font-semibold text-[#55534e] pb-2 border-b border-[#e8e5e0] font-mono">
                   EVENTS TO MONITOR
                 </div>
-                <p className="text-[12.5px] leading-relaxed text-[#55534e]">
-                  {client.portfolioExplanation.whatToWatch}
-                </p>
+                <ul className="space-y-3.5 text-[12.5px] leading-relaxed text-[#55534e]">
+                  {client.portfolioExplanation.whatToWatch.map((point, index) => (
+                    <li key={`${point.title}-${index}`} className="flex items-start gap-2.5">
+                      <span className="text-[#55534e] text-xs mt-0.5 font-bold">•</span>
+                      <span>
+                        <strong className="font-medium text-[#121212]">{point.title}: </strong>
+                        {point.description}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
               </div>
             </div>
           </div>
+          )}
         </section>
 
         {/* SECTION 04 · PROACTIVE ADVICE (Risks & Opportunities) */}
@@ -456,6 +495,9 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
             </span>
           </div>
 
+          {client.advisory.generatedAt === 'Pending' ? (
+            <AiGeneratingPlaceholder label="risks, opportunities, and next steps" />
+          ) : (
           <div className="bg-white border border-[#e8e5e0] border-l-[3px] border-l-[#121212] p-6 sm:p-7 space-y-5 shadow-2xs">
             <div className="flex items-center justify-between gap-4">
               <h2 className="font-serif text-[21px] text-[#121212] font-normal">
@@ -510,6 +552,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
             </div>
             </div>
           </div>
+          )}
         </section>
 
         {/* Bottom Action Ribbon / Document Footer */}

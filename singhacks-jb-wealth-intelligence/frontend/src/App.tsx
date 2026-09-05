@@ -25,6 +25,7 @@ export default function App() {
   const [clients, setClients] = useState<ClientDossier[]>([]);
   const [clientLoadError, setClientLoadError] = useState<string | null>(null);
   const [dossierLoadError, setDossierLoadError] = useState<string | null>(null);
+  const [insightsLoadError, setInsightsLoadError] = useState<string | null>(null);
   const [isDossierLoading, setIsDossierLoading] = useState(false);
   // Navigation & View State
   const [currentView, setCurrentView] = useState<'overview' | 'clients' | 'client-detail'>(
@@ -78,17 +79,44 @@ export default function App() {
     const controller = new AbortController();
     setIsDossierLoading(true);
     setDossierLoadError(null);
+    setInsightsLoadError(null);
 
-    Promise.all([fetchClientDossier(selectedClientId, controller.signal), fetchClientInsights(selectedClientId, controller.signal)])
-      .then(([dossier, insights]) => {
-        const hydratedClient = { ...dossier, ...insights };
-        setClients((previous) => previous.map((client) => client.id === selectedClientId ? hydratedClient : client));
+    // Factual portfolio data is on the critical rendering path; generated
+    // insights are not. Start both requests together, but render the dossier
+    // as soon as it arrives instead of waiting for the LLM response.
+    fetchClientDossier(selectedClientId, controller.signal)
+      .then((dossier) => {
+        setClients((previous) => previous.map((client) =>
+          client.id === selectedClientId
+            ? {
+                ...client,
+                ...dossier,
+                // The factual endpoint intentionally returns null for AI
+                // fields. Keep the loading placeholders until insights arrive.
+                profileSummary: dossier.profileSummary ?? client.profileSummary,
+                portfolioExplanation:
+                  dossier.portfolioExplanation ?? client.portfolioExplanation,
+                advisory: dossier.advisory ?? client.advisory,
+              }
+            : client,
+        ));
       })
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === 'AbortError') return;
         setDossierLoadError(error instanceof Error ? error.message : 'Unable to load client dossier.');
       })
       .finally(() => setIsDossierLoading(false));
+
+    fetchClientInsights(selectedClientId, controller.signal)
+      .then((insights) => {
+        setClients((previous) => previous.map((client) =>
+          client.id === selectedClientId ? { ...client, ...insights } : client,
+        ));
+      })
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === 'AbortError') return;
+        setInsightsLoadError(error instanceof Error ? error.message : 'Unable to load AI insights.');
+      });
 
     return () => controller.abort();
   }, [currentView, selectedClientId]);
@@ -374,6 +402,7 @@ export default function App() {
           <>
             {isDossierLoading && <div className="mx-6 sm:mx-10 mt-5 text-[12px] text-[#666666]">Loading client dossier and advisory insights…</div>}
             {dossierLoadError && <div className="mx-6 sm:mx-10 mt-5 border border-amber-200 bg-amber-50 px-4 py-3 text-[12px] text-amber-900">Could not refresh this dossier: {dossierLoadError}</div>}
+            {insightsLoadError && <div className="mx-6 sm:mx-10 mt-5 border border-amber-200 bg-amber-50 px-4 py-3 text-[12px] text-amber-900">Could not refresh AI insights: {insightsLoadError}</div>}
             {currentClient && <ClientDetailPage
               client={currentClient}
               onBack={() => {

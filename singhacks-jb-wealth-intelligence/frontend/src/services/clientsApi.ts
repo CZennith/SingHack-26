@@ -58,13 +58,14 @@ export async function fetchClients(signal?: AbortSignal): Promise<ClientDossier[
       ...summary,
       initials: initialsFor(summary.name),
       about: { bio: 'Profile details are loading.', age: 0, occupation: 'Pending profile data', clientSince: 0 },
+      profileSummary: { generatedAt: 'Pending', title: 'Client context summary', summary: 'Generating a client context summary.' },
       portfolio: {
         totalValue: '—', totalValueSubtext: 'Pending valuation', cashLiquidity: '—', cashLiquidityPercent: '—', cashLiquiditySubtext: 'Pending liquidity data',
         borrowingUtilisation: '—', borrowingLtvPercent: 0, borrowingStatus: 'NORMAL', allocation: [],
         trajectory: { deltaPercent: '—', deltaPeriod: '1-Year Delta', startLabel: '—', troughLabel: '—', endLabel: '—', points: [] },
         topHoldings: [], remainingHoldingsNote: 'Holdings load when the dossier is opened.',
       },
-      portfolioExplanation: { generatedAt: 'Pending', title: 'Portfolio explanation loading', overview: 'Portfolio attribution loads with the client dossier.', whatMovedAndWhy: '—', whatToWatch: '—' },
+      portfolioExplanation: { generatedAt: 'Pending', title: 'Portfolio explanation loading', overview: 'Portfolio attribution loads with the client dossier.', whatMovedAndWhy: [], whatToWatch: [] },
       advisory: { generatedAt: 'Pending', risks: [], opportunities: [] },
     };
   });

@@ -118,8 +118,8 @@ export interface ClientDossier {
     generatedAt: string;
     title: string;
     overview: string;
-    whatMovedAndWhy: string;
-    whatToWatch: string;
+    whatMovedAndWhy: StrategicPoint[];
+    whatToWatch: StrategicPoint[];
   };
   advisory: {
     generatedAt: string;

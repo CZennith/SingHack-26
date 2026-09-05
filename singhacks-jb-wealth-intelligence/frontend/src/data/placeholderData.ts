@@ -204,8 +204,13 @@ export const placeholderClients: ClientDossier[] = [
       title: 'What changed?',
       overview:
         'Ravi increased borrowing after the recent technology sell-off while keeping his technology positions largely unchanged. The portfolio has since recovered, but the combination of leverage and concentration means another technology decline could have a larger impact.',
-      whatMovedAndWhy: 'His borrowing depends on the value of the same volatile assets he wants to continue holding.',
-      whatToWatch: 'Technology prices, collateral value, expected Q4 liquidity event.',
+      whatMovedAndWhy: [
+        { title: 'Leverage and concentration', description: 'Borrowing depends on the value of the same volatile technology assets the client wants to continue holding.' },
+      ],
+      whatToWatch: [
+        { title: 'Technology prices', description: 'Watch technology prices and the resulting collateral value.' },
+        { title: 'Expected liquidity event', description: 'The anticipated Q4 liquidity event remains important to the client’s funding outlook.' },
+      ],
     },
     advisory: {
       generatedAt: '3 Hours Ago',
@@ -331,9 +336,14 @@ export const placeholderClients: ClientDossier[] = [
       title: 'What changed?',
       overview:
         'Subordinated bond yield expansion drove unintentional duration creep beyond the mandate ceiling of 5.0 years (currently 7.4 years). Additionally, equity outperformance shifted tactical equity weight to 34% versus the 15% mandate cap.',
-      whatMovedAndWhy:
-        'Breaches formal fiduciary mandate threshold; any sudden European rate volatility could trigger an unapproved mark-to-market drawdown.',
-      whatToWatch: 'ECB forward guidance, Swiss Franc yield curve steepening, Investment Committee compliance deadline.',
+      whatMovedAndWhy: [
+        { title: 'Mandate threshold', description: 'The current positioning breaches a formal fiduciary mandate threshold.' },
+        { title: 'Rate sensitivity', description: 'European rate volatility could create an unapproved mark-to-market drawdown.' },
+      ],
+      whatToWatch: [
+        { title: 'Central-bank guidance', description: 'Monitor ECB forward guidance and the Swiss franc yield curve.' },
+        { title: 'Compliance deadline', description: 'Track the Investment Committee compliance deadline.' },
+      ],
     },
     advisory: {
       generatedAt: '2 Hours Ago',
@@ -451,9 +461,14 @@ export const placeholderClients: ClientDossier[] = [
       title: 'What changed?',
       overview:
         'A mandatory capital call of USD 3.5m was issued for SEA Tech Fund IV with settlement on 16 September. Available unencumbered cash is USD 850k, resulting in an unhedged USD 2.65m funding shortfall.',
-      whatMovedAndWhy:
-        'Defaulting on LP capital calls incurs heavy penalties and forfeiture clauses. Public stock lockups prevent direct secondary sale without sponsor waiver.',
-      whatToWatch: 'Capital call deadline (12 days), Lombard line headroom, lockup release calendar.',
+      whatMovedAndWhy: [
+        { title: 'Capital-call obligation', description: 'Defaulting on an LP capital call can incur heavy penalties and forfeiture clauses.' },
+        { title: 'Restricted liquidity', description: 'Public-stock lockups prevent a direct secondary sale without a sponsor waiver.' },
+      ],
+      whatToWatch: [
+        { title: 'Capital-call deadline', description: 'The settlement deadline is in 12 days.' },
+        { title: 'Available funding', description: 'Monitor Lombard-line headroom and the lockup release calendar.' },
+      ],
     },
     advisory: {
       generatedAt: '4 Hours Ago',
@@ -571,9 +586,13 @@ export const placeholderClients: ClientDossier[] = [
       title: 'What changed?',
       overview:
         'European office re-valuations and syndicate refinancing spreads widened. The client’s external family office debt maturing in late 2026 creates hidden correlation with his private banking mandate REIT positions.',
-      whatMovedAndWhy:
-        'A localized commercial real estate downturn would affect both the client’s operating cash flows and his bankable portfolio collateral.',
-      whatToWatch: 'European office occupancy data, German Pfandbriefe yields, Q4 refinancing syndication terms.',
+      whatMovedAndWhy: [
+        { title: 'Correlated real-estate exposure', description: 'A commercial real-estate downturn could affect both operating cash flows and bankable portfolio collateral.' },
+      ],
+      whatToWatch: [
+        { title: 'Property-market signals', description: 'Monitor European office occupancy data and German Pfandbriefe yields.' },
+        { title: 'Refinancing terms', description: 'Track Q4 refinancing syndication terms.' },
+      ],
     },
     advisory: {
       generatedAt: '5 Hours Ago',
@@ -691,9 +710,13 @@ export const placeholderClients: ClientDossier[] = [
       title: 'What changed?',
       overview:
         'Regulatory review timeline for the client’s core venture was deferred by 6 months, slowing anticipated corporate dividend distribution while listed biotech volatility remains elevated.',
-      whatMovedAndWhy:
-        'If the medical device approval experiences further headwinds while biotech markets correct, the client faces simultaneous equity contraction and operating cash strain.',
-      whatToWatch: 'FDA / EMA device panel review notices, XBI Biotech Index implied volatility, corporate cash burn.',
+      whatMovedAndWhy: [
+        { title: 'Linked operating and market risk', description: 'Further approval delays alongside a biotech-market correction could create simultaneous equity losses and operating cash strain.' },
+      ],
+      whatToWatch: [
+        { title: 'Regulatory milestones', description: 'Monitor FDA and EMA device-panel review notices.' },
+        { title: 'Biotech and cash signals', description: 'Watch XBI implied volatility and corporate cash burn.' },
+      ],
     },
     advisory: {
       generatedAt: '6 Hours Ago',
