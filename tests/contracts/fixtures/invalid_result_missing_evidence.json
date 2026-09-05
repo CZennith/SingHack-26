@@ -1,0 +1,30 @@
+{
+  "result_metadata": {
+    "result_type": "calculator_result",
+    "schema_version": "1.0.0",
+    "calculator_name": "exposure_changes",
+    "calculator_version": "1.0.0",
+    "client_id": "CL-0001",
+    "as_of_date": "2026-08-26",
+    "input_snapshot_schema_version": "1.0.0",
+    "input_snapshot_calculation_version": "1.0.0",
+    "status": "complete"
+  },
+  "facts": [],
+  "findings": [
+    {
+      "finding_id": "FIND-001",
+      "finding_type": "example",
+      "severity": "low",
+      "title": "Example",
+      "description": "Example finding with missing evidence.",
+      "fact_ids": [],
+      "evidence_ids": ["E-MISSING"],
+      "requires_rm_review": false
+    }
+  ],
+  "evidence": [],
+  "warnings": [],
+  "assumptions": [],
+  "requires_rm_review": false
+}

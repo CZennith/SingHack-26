@@ -1,0 +1,2 @@
+"""Pure, snapshot-based calculators."""
+

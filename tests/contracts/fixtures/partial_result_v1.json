@@ -1,0 +1,29 @@
+{
+  "result_metadata": {
+    "result_type": "calculator_result",
+    "schema_version": "1.0.0",
+    "calculator_name": "liquidity_pressure",
+    "calculator_version": "1.0.0",
+    "client_id": "CL-0002",
+    "as_of_date": "2026-08-26",
+    "comparison_date": null,
+    "period_start": "2026-06-30",
+    "period_end": "2026-08-26",
+    "input_snapshot_schema_version": "1.0.0",
+    "input_snapshot_calculation_version": "1.0.0",
+    "status": "partial"
+  },
+  "facts": [],
+  "findings": [],
+  "evidence": [],
+  "warnings": [
+    {
+      "warning_id": "W-001",
+      "warning_type": "incomplete_input",
+      "severity": "medium",
+      "message": "The example result is partial because one input source was unavailable."
+    }
+  ],
+  "assumptions": [],
+  "requires_rm_review": false
+}

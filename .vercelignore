@@ -1,0 +1,16 @@
+# The repository contains synthetic but sensitive wealth-management fixtures.
+# Keep them available locally while excluding them from Vercel bundles.
+data/*.csv
+data/*.json
+db/*.duckdb
+outputs/
+.venv/
+node_modules/
+dist/
+.pytest_cache/
+__pycache__/
+tests/
+*.pyc
+.env
+.env.*
+!.env.example

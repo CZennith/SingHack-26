@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.DS_Store
+.venv/
+.env*
+!.env.example
+node_modules/
+dist/
+__pycache__/
+db/*.duckdb
+data/*.csv
+data/*.json
+outputs/*
+!outputs/.gitkeep
+.vercel/

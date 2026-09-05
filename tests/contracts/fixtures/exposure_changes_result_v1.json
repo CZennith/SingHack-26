@@ -1,0 +1,96 @@
+{
+  "result_metadata": {
+    "result_type": "calculator_result",
+    "schema_version": "1.0.0",
+    "calculator_name": "exposure_changes",
+    "calculator_version": "1.0.0",
+    "client_id": "CL-0001",
+    "as_of_date": "2026-08-26",
+    "comparison_date": "2026-06-30",
+    "period_start": "2026-01-01",
+    "period_end": "2026-08-26",
+    "input_snapshot_schema_version": "1.0.0",
+    "input_snapshot_calculation_version": "1.0.0",
+    "status": "complete"
+  },
+  "facts": [
+    {
+      "fact_id": "F-001",
+      "metric": "technology_weight",
+      "scope": {
+        "level": "client",
+        "client_id": "CL-0001",
+        "portfolio_id": null,
+        "instrument_id": null,
+        "asset_class": null,
+        "sector": "Information Technology",
+        "region": null,
+        "currency": null
+      },
+      "current_value": 27.6,
+      "previous_value": 18.2,
+      "change": 9.4,
+      "unit": "percentage_points",
+      "currency": null,
+      "as_of_date": "2026-08-26",
+      "comparison_date": "2026-06-30"
+    }
+  ],
+  "findings": [
+    {
+      "finding_id": "FIND-001",
+      "finding_type": "material_exposure_change",
+      "severity": "medium",
+      "title": "Technology exposure changed",
+      "description": "The recorded technology exposure changed by 9.4 percentage points.",
+      "fact_ids": ["F-001"],
+      "evidence_ids": ["E-001", "E-002"],
+      "requires_rm_review": true
+    }
+  ],
+  "evidence": [
+    {
+      "evidence_id": "E-001",
+      "source_table": "holdings_snapshots",
+      "source_keys": {
+        "snapshot_date": "2026-08-26",
+        "portfolio_id": "PF-0001",
+        "client_id": "CL-0001",
+        "instrument_id": "SYN-EQ-0003"
+      },
+      "field": "weight_pct",
+      "value": 8.5162,
+      "source_date": "2026-08-26",
+      "description": "Holding weight in the current portfolio snapshot."
+    },
+    {
+      "evidence_id": "E-002",
+      "source_table": "holdings_snapshots",
+      "source_keys": {
+        "snapshot_date": "2026-06-30",
+        "portfolio_id": "PF-0001",
+        "client_id": "CL-0001",
+        "instrument_id": "SYN-EQ-0003"
+      },
+      "field": "weight_pct",
+      "value": 5.1234,
+      "source_date": "2026-06-30",
+      "description": "Holding weight in the comparison portfolio snapshot."
+    }
+  ],
+  "warnings": [
+    {
+      "warning_id": "W-001",
+      "warning_type": "source_limitation",
+      "severity": "info",
+      "message": "This example result contains manually defined example values.",
+      "evidence_ids": [],
+      "source_reference": {
+        "table": "holdings_snapshots",
+        "keys": {"client_id": "CL-0001"}
+      }
+    }
+  ],
+  "assumptions": [],
+  "requires_rm_review": true
+}
