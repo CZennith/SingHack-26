@@ -7,33 +7,53 @@ sent to the frontend.
 """
 
 import json
-from typing import Any
-import datetime 
+import logging
+import os
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from collections.abc import Iterator
+from datetime import datetime
+from functools import lru_cache
+from typing import Any
+from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from .client_data_service import build_client_llm_context
 
-from pathlib import Path
 from dotenv import load_dotenv
 from openai import OpenAI
 from pydantic import BaseModel
 
 load_dotenv(Path(__file__).with_name(".env"))
 
-openai_client = OpenAI()  
+logger = logging.getLogger(__name__)
+
+# Production configuration selected from the advisory benchmark.
+MODEL = "gpt-5.6-terra"
+REASONING = {"effort": "none"}
 
 
-def generate_profile_summary(context: dict[str, Any]) -> dict | None:
+@lru_cache(maxsize=1)
+def get_openai_client() -> OpenAI:
+    """Create the client only when an insight request needs it.
+
+    Deferring construction keeps health checks and static data endpoints usable
+    when a deployment is missing its runtime secret.
+    """
+    if not os.getenv("OPENAI_API_KEY"):
+        raise RuntimeError("OPENAI_API_KEY is not configured for insight generation.")
+    return OpenAI()
+
+
+def generated_at() -> str:
+    return datetime.now(ZoneInfo("Asia/Singapore")).strftime("%Y-%m-%d %H:%M SGT")
+
+
+def generate_profile_summary(context: dict[str, Any]) -> dict:
     """Call the profile-summary LLM with factual client context only.
 
     This optional section summarises the client's stated objectives and current
     situation. It must not infer personal facts missing from ``context``.
     """
-    client = context["client"]
-
-    #print(f"Profile summary: {context["profile_summary"]}")
-
     instructions = (
         """
         You are an assistant for a private-banking Relationship Manager.
@@ -51,21 +71,18 @@ Requirements:
 - Be concise. Keep the response below 75 words.
         """
     )
-    output = openai_client.responses.create(
-        model="gpt-5.6-terra",
-        reasoning={"effort": "low"},
+    output = get_openai_client().responses.create(
+        model=MODEL,
+        reasoning=REASONING,
 
         instructions=instructions,
         input=json.dumps(context["profile_summary"], ensure_ascii=False, separators=(",", ":")),
     )
 
-    print("**---**")
-    print(f"Ran LLM for profile summary for {client['client_name']}. Tokens used: {output.usage.total_tokens}")
-    print(f"LLM output: {output.output_text}")
-    print("**---**")
+    logger.info("Generated client profile summary (%s tokens).", output.usage.total_tokens)
 
     return {
-        "generatedAt": datetime.datetime.now().strftime("%Y-%m-%d %H:%M SGT"),
+        "generatedAt": generated_at(),
         "title": "Client context summary",
         "summary": (
             output.output_text
@@ -92,9 +109,9 @@ def generate_portfolio_explanation(context: dict[str, Any]) -> dict:
         whatMovedAndWhy: list[ExplanationPoint]
         whatToWatch: list[ExplanationPoint]
 
-    response = openai_client.responses.parse(
-        model="gpt-5.6-terra",
-        reasoning={"effort": "low"},
+    response = get_openai_client().responses.parse(
+        model=MODEL,
+        reasoning=REASONING,
         instructions="""
     Explain the portfolio in clear, client-friendly language.
 
@@ -117,14 +134,12 @@ def generate_portfolio_explanation(context: dict[str, Any]) -> dict:
         ),
         text_format=PortfolioExplanation,
     )
-    print("**---**")
-    print(f"Ran LLM for portfolio explanation for {context['client']['client_name']}. Tokens used: {response.usage.total_tokens}")
-    print(f"LLM output: {response.output_text}")
-    print("**---**")
-    
     output = response.output_parsed
+    if output is None:
+        raise RuntimeError("The portfolio explanation model returned no structured output.")
+    logger.info("Generated portfolio explanation (%s tokens).", response.usage.total_tokens)
     return {
-        "generatedAt": datetime.datetime.now().strftime("%Y-%m-%d %H:%M SGT"),
+        "generatedAt": generated_at(),
         "title": "Intelligent Portfolio Explanation",
         "overview": (
             output.overview
@@ -168,9 +183,9 @@ def generate_proactive_advice(context: dict[str, Any]) -> dict:
         "transactions": records(context["transactions"]),
     }
 
-    response = openai_client.responses.parse(
-        model="gpt-5.6-terra",
-        reasoning={"effort": "low"},
+    response = get_openai_client().responses.parse(
+        model=MODEL,
+        reasoning=REASONING,
 
         instructions="""
 You are an assistant for a private-banking Relationship Manager. Identify the
@@ -192,16 +207,12 @@ a promise of outcome. Do not recommend named securities or products.
     )
 
     output = response.output_parsed
-    print("**---**")
-    print(
-        f"Ran LLM for proactive advice for {context['client']['client_name']}. "
-        f"Tokens used: {response.usage.total_tokens}"
-    )
-    print(f"LLM output: {response.output_text}")
-    print("**---**")
+    if output is None:
+        raise RuntimeError("The advisory model returned no structured output.")
+    logger.info("Generated proactive advice (%s tokens).", response.usage.total_tokens)
 
     return {
-        "generatedAt": datetime.datetime.now().strftime("%Y-%m-%d %H:%M SGT"),
+        "generatedAt": generated_at(),
         "risks": [point.model_dump() for point in output.risks],
         "opportunities": [point.model_dump() for point in output.opportunities],
     }
@@ -253,10 +264,3 @@ def stream_client_insight_sections(client_id: str) -> Iterator[tuple[str, dict]]
             for future in completed:
                 section = futures.pop(future)
                 yield section, future.result()
-
-
-
-if __name__ == "__main__":
-    client_id = "CL-0001"
-    insights = build_client_insights(client_id)
-    print(json.dumps(insights, indent=2))

@@ -218,7 +218,7 @@ def get_client_insights(client_id: str) -> ClientInsightsResponse:
 @app.get("/clients/{client_id}/insights/stream")
 def stream_client_insights(client_id: str) -> StreamingResponse:
     """Send each AI insight section to the browser as it completes."""
-    from llm_service import stream_client_insight_sections
+    from .llm_service import stream_client_insight_sections
 
     def events():
         try:
