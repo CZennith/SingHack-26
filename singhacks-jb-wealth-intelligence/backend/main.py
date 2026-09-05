@@ -5,6 +5,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
+if __package__:
+    from .stress_router import stress_router
+else:
+    from stress_router import stress_router
+
 app = FastAPI()
 
 app.add_middleware(
@@ -17,6 +22,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(stress_router)
 
 
 @app.get("/")

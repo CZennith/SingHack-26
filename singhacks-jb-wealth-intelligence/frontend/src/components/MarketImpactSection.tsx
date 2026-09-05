@@ -3,10 +3,12 @@ import { macroIndicators, marketImpactPillars } from '../data/placeholderData';
 
 interface MarketImpactSectionProps {
   onSelectClientByName?: (clientName: string) => void;
+  onRunBookScenario?: () => void;
 }
 
 export const MarketImpactSection: React.FC<MarketImpactSectionProps> = ({
   onSelectClientByName,
+  onRunBookScenario,
 }) => {
   return (
     <section id="section-market-impact" className="space-y-4">
@@ -17,9 +19,20 @@ export const MarketImpactSection: React.FC<MarketImpactSectionProps> = ({
             SECTION 01 · Market &amp; Portfolio Impact
           </span>
         </div>
-        <div className="flex items-center gap-2 font-mono text-[11px] text-[#767676]">
-          <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
-          <span>Fixture snapshot · 26 Aug 2026</span>
+        <div className="flex items-center gap-3">
+          {onRunBookScenario && (
+            <button
+              type="button"
+              onClick={onRunBookScenario}
+              className="px-4 py-2 bg-[#121212] text-[#faf9f6] hover:bg-neutral-800 text-[10px] font-medium uppercase tracking-[0.14em] transition-colors cursor-pointer"
+            >
+              Run Book Scenario
+            </button>
+          )}
+          <div className="flex items-center gap-2 font-mono text-[11px] text-[#767676]">
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
+            <span>Fixture snapshot · 26 Aug 2026</span>
+          </div>
         </div>
       </div>
 

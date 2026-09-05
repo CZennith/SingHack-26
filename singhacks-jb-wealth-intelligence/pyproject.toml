@@ -1,7 +1,20 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "jb-wealth-intelligence"
 version = "0.1.0"
+description = "AI-assisted wealth intelligence and portfolio stress testing"
 requires-python = ">=3.12"
+dependencies = ["duckdb>=1.0"]
+
+[project.optional-dependencies]
+test = ["pytest>=8.0"]
+
+[tool.pytest.ini_options]
+pythonpath = [".", "backend"]
+testpaths = ["backend/tests"]
 
 # The API intentionally lives outside Vercel's auto-discovered entrypoint
 # directories. Tell the FastAPI runtime exactly which ASGI application to run.

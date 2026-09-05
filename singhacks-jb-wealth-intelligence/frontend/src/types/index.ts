@@ -87,6 +87,8 @@ export interface ClientDossier {
   asOf?: string;
   valuationAsOf?: string;
   relationshipManager?: { name: string; title?: string };
+  urgencyScore?: number;
+  prioritizationTriggers?: string[];
   
   // Detailed client profile fields (for Image 3 client page)
   about: {

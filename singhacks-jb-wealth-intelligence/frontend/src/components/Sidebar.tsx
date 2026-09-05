@@ -1,9 +1,10 @@
 import React from 'react';
+import { ActivitySquare } from 'lucide-react';
 import { currentRM } from '../data/placeholderData';
 
 interface SidebarProps {
-  currentView: 'overview' | 'clients' | 'client-detail';
-  onNavigate: (view: 'overview' | 'clients') => void;
+  currentView: 'overview' | 'clients' | 'client-detail' | 'stress-workbench';
+  onNavigate: (view: 'overview' | 'clients' | 'stress-workbench') => void;
   mobileOpen: boolean;
   onCloseMobile: () => void;
   clientCount: number;
@@ -92,6 +93,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <span className="text-[10px] font-mono px-1.5 py-0.2 bg-[#f4f3f0] text-[#767676] border border-[#e8e5e0]">
                 {clientCount}
               </span>
+            </button>
+
+            {/* Stress Tests */}
+            <button
+              id="nav-stress-tests"
+              onClick={() => {
+                onNavigate('stress-workbench');
+                onCloseMobile();
+              }}
+              className={`w-full flex items-center justify-between text-[13px] py-1.5 px-2 rounded-sm transition-colors text-left ${
+                currentView === 'stress-workbench'
+                  ? 'font-medium text-[#121212] bg-[#ffffff] border border-[#e8e5e0] shadow-xs'
+                  : 'text-[#767676] hover:text-[#121212] hover:bg-[#f4f3f0]'
+              }`}
+            >
+              <span>Stress Tests</span>
+              {currentView === 'stress-workbench' && (
+                <span className="w-1.5 h-1.5 rounded-full bg-[#121212]" />
+              )}
             </button>
           </nav>
         </div>

@@ -8,6 +8,7 @@ import {
   Database,
   ChevronLeft,
   ChevronRight,
+  Activity,
 } from 'lucide-react';
 import { ClientDossier } from '../types';
 
@@ -16,6 +17,7 @@ interface ClientDetailPageProps {
   onBack: () => void;
   onPrepareBrief: (client: ClientDossier) => void;
   onViewSourceData: () => void;
+  onRunStressTests: () => void;
   onSelectAnotherClient: (clientId: string) => void;
   allClients: ClientDossier[];
 }
@@ -43,6 +45,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
   onBack,
   onPrepareBrief,
   onViewSourceData,
+  onRunStressTests,
   onSelectAnotherClient,
   allClients,
 }) => {
@@ -567,6 +570,16 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
             >
               <FileText className="w-3.5 h-3.5" />
               <span>Prepare client brief</span>
+            </button>
+
+            <button
+              id="run-stress-tests-btn"
+              type="button"
+              onClick={onRunStressTests}
+              className="bg-[#1a1a2e] hover:bg-[#16213e] text-white text-[10px] font-medium uppercase tracking-[0.14em] px-4 py-2 flex items-center gap-2 transition-colors cursor-pointer"
+            >
+              <Activity className="w-3.5 h-3.5" />
+              <span>Run stress tests</span>
             </button>
 
             <button

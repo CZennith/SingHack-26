@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
+
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   Sidebar,
 } from './components/Sidebar';
@@ -7,6 +8,7 @@ import { MarketImpactSection } from './components/MarketImpactSection';
 import { PriorityClientCard } from './components/PriorityClientCard';
 import { ClientDetailPage } from './components/ClientDetailPage';
 import { ClientsListView } from './components/ClientsListView';
+import { StressWorkbenchPage } from './components/StressWorkbenchPage';
 import {
   BriefModal,
   SourceDataModal,
@@ -20,6 +22,7 @@ import {
 import { ClientDossier, RiskSeverity } from './types';
 import { fetchClientDossier, fetchClients, streamClientInsights } from './services/clientsApi';
 import { FileText, SlidersHorizontal, Sparkles } from 'lucide-react';
+import { getPrioritization } from './services/prioritization';
 
 export default function App() {
   const [clients, setClients] = useState<ClientDossier[]>([]);
@@ -28,11 +31,50 @@ export default function App() {
   const [insightsLoadError, setInsightsLoadError] = useState<string | null>(null);
   const [isDossierLoading, setIsDossierLoading] = useState(false);
   // Navigation & View State
-  const [currentView, setCurrentView] = useState<'overview' | 'clients' | 'client-detail'>(
+  const [currentView, setCurrentView] = useState<'overview' | 'clients' | 'client-detail' | 'stress-workbench'>(
     'overview'
   );
   const [selectedClientId, setSelectedClientId] = useState<string>('');
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
+  // Book-wide scenario active banner state (Req 12.4, 12.7)
+  const [bookScenarioActive, setBookScenarioActive] = useState(false);
+  const [activeBookScenarioName, setActiveBookScenarioName] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    getPrioritization()
+      .then((result) => {
+        if (!isMounted) return;
+
+        const prioritizationByName = new Map(
+          result.clients.map((client) => [client.client_name, client]),
+        );
+        setClients((prevClients) =>
+          prevClients.map((client) => {
+            const prioritized = prioritizationByName.get(client.name);
+            if (!prioritized) return client;
+
+            return {
+              ...client,
+              riskLevel: prioritized.risk_level,
+              urgencyScore: prioritized.urgency_score,
+              prioritizationTriggers: prioritized.trigger_reasons.map(
+                (trigger) => `${trigger.label} (+${trigger.points})`,
+              ),
+            };
+          }),
+        );
+      })
+      .catch((error) => {
+        console.error('Unable to load global book prioritization', error);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Search & Filter State
   const [searchQuery, setSearchQuery] = useState('');
@@ -167,7 +209,9 @@ export default function App() {
   // Current client for detail view
   const currentClient = useMemo(() => {
     return (
-      clients.find((c) => c.id === selectedClientId) || clients[0]
+      clients.find((c) => c.id === selectedClientId) ||
+      clients[0] ||
+      null
     );
   }, [clients, selectedClientId]);
 
@@ -202,7 +246,11 @@ export default function App() {
       <Sidebar
         currentView={currentView}
         onNavigate={(view) => {
-          setCurrentView(view);
+          if (view === 'stress-workbench') {
+            setCurrentView('stress-workbench');
+          } else {
+            setCurrentView(view);
+          }
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         mobileOpen={mobileSidebarOpen}
@@ -286,9 +334,36 @@ export default function App() {
 
             {/* Operational Workspace Content Stage */}
             <div className="px-6 sm:px-10 py-10 flex-1 max-w-6xl mx-auto w-full space-y-12">
+              {/* Amber banner: book-wide scenario active (Req 12.4, 12.7) */}
+              {bookScenarioActive && activeBookScenarioName && (
+                <div className="flex items-center justify-between px-4 py-3 bg-[#fdf8f0] text-[#9E6B20] border border-[#f4e4cc]">
+                  <div className="flex items-center gap-2.5 text-[12px]">
+                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#9E6B20]" />
+                    <span className="font-medium">{activeBookScenarioName}</span>
+                    <span className="text-[11px] text-[#b07a30]">
+                      · Leaderboard sorted by scenario impact
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBookScenarioActive(false);
+                      setActiveBookScenarioName(null);
+                    }}
+                    className="text-[10px] uppercase tracking-[0.12em] font-medium text-[#9E6B20] hover:text-[#7a5218] underline underline-offset-2 cursor-pointer"
+                  >
+                    Clear scenario
+                  </button>
+                </div>
+              )}
               {/* SECTION 01: Market & Portfolio Impact */}
               <MarketImpactSection
                 onSelectClientByName={handleSelectClientByName}
+                onRunBookScenario={() => {
+                  setSelectedClientId('');
+                  setCurrentView('stress-workbench');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
               />
 
               {/* SECTION 02: Priority Client Dossiers */}
@@ -415,6 +490,10 @@ export default function App() {
                 setIsBriefModalOpen(true);
               }}
               onViewSourceData={() => setIsSourceDataModalOpen(true)}
+              onRunStressTests={() => {
+                setCurrentView('stress-workbench');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
               onSelectAnotherClient={handleSelectClient}
               allClients={clients}
             />}
@@ -431,6 +510,32 @@ export default function App() {
               onSearchChange={setSearchQuery}
             />
           </div>
+        )}
+
+        {/* VIEW 4: STRESS TEST WORKBENCH */}
+        {currentView === 'stress-workbench' && (
+          <StressWorkbenchPage
+            mode={selectedClientId ? 'client' : 'book-wide'}
+            clientId={selectedClientId || null}
+            allClients={clients}
+            onBack={() => {
+              if (selectedClientId) {
+                setCurrentView('client-detail');
+              } else {
+                setCurrentView('overview');
+              }
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            onSelectClient={(clientId) => {
+              setSelectedClientId(clientId);
+              setCurrentView('stress-workbench');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            onBookScenarioRun={(scenarioName) => {
+              setBookScenarioActive(true);
+              setActiveBookScenarioName(scenarioName);
+            }}
+          />
         )}
       </main>
 
