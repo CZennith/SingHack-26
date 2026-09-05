@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import defaultdict
 from collections.abc import Mapping
 from typing import Any
 
@@ -292,3 +293,235 @@ def compute_ltv_stress(
         )
 
     return rows
+
+
+# ---------------------------------------------------------------------------
+# Mandate Guard
+# ---------------------------------------------------------------------------
+
+# Approval label by service_model value (case-insensitive prefix match)
+_SERVICE_MODEL_LABELS: dict[str, str] = {
+    "discretionary": "RM Discretion",
+    "advisory": "Client Approval Required",
+    "custody": "Custody — no action possible",
+}
+
+
+def _approval_label(service_model: str) -> str:
+    """Map a portfolio service_model string to its approval label."""
+    sm = (service_model or "").lower().strip()
+    for key, label in _SERVICE_MODEL_LABELS.items():
+        if sm.startswith(key):
+            return label
+    return "Client Approval Required"  # safe default
+
+
+def _current_weights(
+    client_id: str,
+    data: Mapping[str, pd.DataFrame],
+    as_of: str = AS_OF,
+) -> dict[str, float]:
+    """Compute the current weight (% of total AUM) per asset class for this client.
+
+    Returns {asset_class: weight_pct}, e.g. {"Equity": 32.5, "Fixed Income": 40.0, ...}
+    Only holdings in the snapshot for this client are included.
+    """
+    holdings_df = data["holdings"]
+    snapshot = holdings_df[
+        holdings_df["client_id"].eq(client_id)
+        & holdings_df["snapshot_date"].astype(str).eq(as_of)
+    ]
+    if snapshot.empty:
+        return {}
+
+    totals: dict[str, float] = defaultdict(float)
+    grand_total = 0.0
+    for _, h in snapshot.iterrows():
+        ac = _text(h.get("asset_class"))
+        val = _number(h.get("market_value_usd"))
+        if ac:
+            totals[ac] += val
+        grand_total += val
+
+    if grand_total == 0.0:
+        return {}
+    return {ac: val / grand_total * 100.0 for ac, val in totals.items()}
+
+
+def mandate_guard(
+    client_id: str,
+    recommendations: list[dict[str, Any]],
+    data: Mapping[str, pd.DataFrame],
+    as_of: str = AS_OF,
+) -> list[dict[str, Any]]:
+    """Validate RM recommendations against mandate bounds and label by service model.
+
+    Each recommendation dict must contain at least:
+        action_verb    (str)  e.g. "Reduce"
+        asset_class    (str)  e.g. "Equity"
+        weight_change  (float) e.g. -8.0   (negative = reduce, positive = increase)
+        holding_name   (str)  the specific instrument being actioned
+        rationale      (str)  technical rationale
+
+    Returns a list of 'guarded' recommendation dicts, each containing the
+    original fields plus:
+        approval_label           (str)
+        plain_language_summary   (str)
+        mandate_breach           (bool)
+        breach_detail            (str | None)
+        alternative_action       (str | None)
+        projected_weight         (float | None)
+
+    When the input list is empty, returns a single "no action required" record.
+
+    Requirements: 7.1 – 7.6
+    """
+    portfolios_df = data["portfolios"]
+    mandates_df = data["mandates"]
+
+    # -----------------------------------------------------------------
+    # Load all managed (non-Custody) portfolios for this client.
+    # -----------------------------------------------------------------
+    client_portfolios = portfolios_df[
+        portfolios_df["client_id"].eq(client_id)
+    ]
+    managed_portfolios = client_portfolios[
+        ~client_portfolios["service_model"].str.lower().str.contains("custody", na=False)
+    ]
+
+    # Build mandate limit lookup: {(mandate_code, asset_class): {min_pct, max_pct, ...}}
+    # We index by mandate_code so we can look up per-portfolio.
+    mandate_index: dict[tuple[str, str], dict[str, float]] = {}
+    for _, row in mandates_df.iterrows():
+        code = _text(row.get("mandate_code"))
+        ac = _text(row.get("asset_class"))
+        if code and ac:
+            mandate_index[(code, ac)] = {
+                "min_pct": _number(row.get("min_pct")),
+                "max_pct": _number(row.get("max_pct")),
+                "target_pct": _number(row.get("target_pct")),
+            }
+
+    # Current portfolio-level weights for breach check.
+    current_weights = _current_weights(client_id, data, as_of)
+
+    # -----------------------------------------------------------------
+    # "No action required" edge case (Req 7.6)
+    # -----------------------------------------------------------------
+    if not recommendations:
+        return [{
+            "action_verb": "No action",
+            "asset_class": None,
+            "holding_name": None,
+            "rationale": "All stress test modules returned no actionable findings.",
+            "weight_change": 0.0,
+            "approval_label": "N/A",
+            "plain_language_summary": (
+                "No immediate action required — your portfolio is within all "
+                "mandate limits and stress tests show no critical findings."
+            ),
+            "mandate_breach": False,
+            "breach_detail": None,
+            "alternative_action": None,
+            "projected_weight": None,
+        }]
+
+    guarded: list[dict[str, Any]] = []
+
+    for rec in recommendations:
+        asset_class = _text(rec.get("asset_class", ""))
+        weight_change = _number(rec.get("weight_change", 0.0))
+        action_verb = _text(rec.get("action_verb", "Review"))
+        holding_name = _text(rec.get("holding_name", ""))
+        rationale = _text(rec.get("rationale", ""))
+
+        current_weight = current_weights.get(asset_class, 0.0)
+        projected_weight = current_weight + weight_change
+
+        # -----------------------------------------------------------------
+        # Mandate breach check: compare projected_weight against ALL managed
+        # portfolios' mandate limits for this asset class.
+        # -----------------------------------------------------------------
+        mandate_breach = False
+        breach_detail: str | None = None
+        alternative_action: str | None = None
+
+        for _, portfolio in managed_portfolios.iterrows():
+            mandate_code = _text(portfolio.get("mandate_code"))
+            key = (mandate_code, asset_class)
+            mandate = mandate_index.get(key)
+            if mandate is None:
+                continue
+
+            min_pct = mandate["min_pct"]
+            max_pct = mandate["max_pct"]
+            portfolio_name = _text(portfolio.get("portfolio_name", mandate_code))
+
+            if projected_weight < min_pct:
+                mandate_breach = True
+                breach_detail = (
+                    f"Projected {asset_class} weight ({projected_weight:.1f}%) would fall "
+                    f"below mandate floor of {min_pct:.1f}% for '{portfolio_name}'."
+                )
+                alternative_action = (
+                    f"Reduce to mandate floor of {min_pct:.1f}% rather than full elimination "
+                    f"— consider a partial reduction that stays within '{mandate_code}' bounds."
+                )
+                break  # one breach is sufficient to flag
+
+            if projected_weight > max_pct:
+                mandate_breach = True
+                breach_detail = (
+                    f"Projected {asset_class} weight ({projected_weight:.1f}%) would exceed "
+                    f"mandate ceiling of {max_pct:.1f}% for '{portfolio_name}'."
+                )
+                alternative_action = (
+                    f"Cap the increase at the mandate ceiling of {max_pct:.1f}% "
+                    f"for '{mandate_code}'."
+                )
+                break
+
+        # -----------------------------------------------------------------
+        # Approval label: use the most permissive actionable service model.
+        # Priority: Discretionary > Advisory > Custody.
+        # If client has any Discretionary managed portfolio, label is "RM Discretion".
+        # -----------------------------------------------------------------
+        service_models = set(
+            managed_portfolios["service_model"].str.lower().str.strip().tolist()
+        )
+        if any(sm.startswith("discretionary") for sm in service_models):
+            approval_label = "RM Discretion"
+        elif any(sm.startswith("advisory") for sm in service_models):
+            approval_label = "Client Approval Required"
+        else:
+            # All portfolios are Custody — no managed portfolio to act on.
+            approval_label = "Custody — no action possible"
+
+        # -----------------------------------------------------------------
+        # Plain-language summary (Req 7.5)
+        # -----------------------------------------------------------------
+        direction = "reduce" if weight_change < 0 else "increase"
+        abs_change = abs(weight_change)
+        if holding_name:
+            plain_summary = (
+                f"Consider {direction}ing your {asset_class} exposure "
+                f"(by about {abs_change:.1f}%) by reviewing {holding_name}. "
+                f"{rationale}"
+            )
+        else:
+            plain_summary = (
+                f"Consider {direction}ing {asset_class} exposure by about {abs_change:.1f}%. "
+                f"{rationale}"
+            )
+
+        guarded.append({
+            **rec,
+            "approval_label": approval_label,
+            "plain_language_summary": plain_summary,
+            "mandate_breach": mandate_breach,
+            "breach_detail": breach_detail,
+            "alternative_action": alternative_action,
+            "projected_weight": round(projected_weight, 2),
+        })
+
+    return guarded
