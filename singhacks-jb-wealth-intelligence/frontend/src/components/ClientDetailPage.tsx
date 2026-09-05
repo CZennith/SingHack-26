@@ -134,6 +134,16 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
               {client.about.bio}
             </p>
 
+            {client.profileSummary && (
+              <div className="mt-5 border-l-2 border-[#2c6e6a] bg-[#f9f8f5] px-4 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-[12.5px] font-medium text-[#121212]">{client.profileSummary.title}</span>
+                  <span className="text-[10px] text-[#8c887f] font-mono">AI-generated · {client.profileSummary.generatedAt}</span>
+                </div>
+                <p className="mt-1 text-[12.5px] leading-relaxed text-[#55534e]">{client.profileSummary.summary}</p>
+              </div>
+            )}
+
             <div className="flex flex-wrap items-center gap-4 mt-6 pt-5 border-t border-[#e8e5e0] text-[12px] text-[#666666]">
               <span className="inline-flex items-center gap-1.5">
                 <User className="w-3.5 h-3.5 text-[#8c887f]" />
@@ -389,11 +399,11 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
           </div>
         </section>
 
-        {/* SECTION 03 · SYNTHESISED ANALYSIS */}
+        {/* SECTION 03 · INTELLIGENT PORTFOLIO EXPLANATION */}
         <section className="space-y-3">
           <div className="border-b border-[#e8e5e0] pb-2">
             <span className="text-[10px] tracking-[0.16em] uppercase font-semibold text-[#8c887f]">
-              SECTION 03 · SYNTHESISED ANALYSIS
+              SECTION 03 · PORTFOLIO EXPLANATION
             </span>
           </div>
 
@@ -403,63 +413,69 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
               <div className="flex items-center gap-2">
                 <span className="text-[#121212] text-[15px]">✦</span>
                 <h3 className="font-serif text-[20px] text-[#121212] font-normal">
-                  {client.synthesisedAnalysis.headline}
+                  {client.portfolioExplanation.title}
                 </h3>
               </div>
               <span className="text-[11px] text-[#8c887f] font-mono">
-                Automated Synthesis · {client.synthesisedAnalysis.syncTime}
+                AI-generated · {client.portfolioExplanation.generatedAt}
               </span>
             </div>
 
             <p className="text-[14px] leading-[23px] text-[#121212] font-normal max-w-4xl">
-              {client.synthesisedAnalysis.narrative}
+              {client.portfolioExplanation.overview}
             </p>
 
             {/* Sub-cards: Why it Matters & Monitor */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
               <div className="bg-[#f9f8f5] border border-[#e8e5e0] p-4">
                 <div className="text-[10px] tracking-[0.12em] uppercase font-semibold text-[#55534e] mb-1.5 font-mono">
-                  WHY IT MATTERS
+                  WHAT MOVED & WHY
                 </div>
                 <p className="text-[12.5px] leading-relaxed text-[#55534e]">
-                  {client.synthesisedAnalysis.whyItMatters}
+                  {client.portfolioExplanation.whatMovedAndWhy}
                 </p>
               </div>
 
               <div className="bg-[#f9f8f5] border border-[#e8e5e0] p-4">
                 <div className="text-[10px] tracking-[0.12em] uppercase font-semibold text-[#55534e] mb-1.5 font-mono">
-                  MONITOR
+                  EVENTS TO MONITOR
                 </div>
                 <p className="text-[12.5px] leading-relaxed text-[#55534e]">
-                  {client.synthesisedAnalysis.monitor}
+                  {client.portfolioExplanation.whatToWatch}
                 </p>
               </div>
             </div>
           </div>
         </section>
 
-        {/* SECTION 04 · STRATEGIC MATRIX (Risks & Opportunities) */}
+        {/* SECTION 04 · PROACTIVE ADVICE (Risks & Opportunities) */}
         <section className="space-y-4">
           <div className="border-b border-[#e8e5e0] pb-2">
             <span className="text-[10px] tracking-[0.16em] uppercase font-semibold text-[#8c887f]">
-              SECTION 04 · STRATEGIC MATRIX
+              SECTION 04 · PROACTIVE ADVICE
             </span>
           </div>
 
-          <h2 className="font-serif text-[21px] text-[#121212] font-normal">
-            Risks &amp; Opportunities
-          </h2>
+          <div className="bg-white border border-[#e8e5e0] border-l-[3px] border-l-[#121212] p-6 sm:p-7 space-y-5 shadow-2xs">
+            <div className="flex items-center justify-between gap-4">
+              <h2 className="font-serif text-[21px] text-[#121212] font-normal">
+                Risks, Opportunities &amp; Next Steps
+              </h2>
+              <span className="text-[10px] text-[#8c887f] font-mono shrink-0">
+                AI-generated · {client.advisory.generatedAt}
+              </span>
+            </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
             {/* Risks Column */}
-            <div className="bg-white border border-[#e8e5e0] p-6 space-y-4 shadow-2xs">
+            <div className="bg-[#f9f8f5] border border-[#e8e5e0] p-4 space-y-4">
               <div className="flex items-center gap-2 pb-2 border-b border-[#e8e5e0]">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#b33939] inline-block" />
                 <h3 className="font-serif text-[17px] text-[#121212] font-normal">Risks</h3>
               </div>
 
               <ul className="space-y-3.5 text-[12.5px] leading-relaxed text-[#55534e]">
-                {client.strategicMatrix.risks.map((risk, idx) => (
+                {client.advisory.risks.map((risk, idx) => (
                   <li key={idx} className="flex items-start gap-2.5">
                     <span className="text-[#b33939] text-xs mt-0.5 font-bold">•</span>
                     <span>
@@ -472,7 +488,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
             </div>
 
             {/* Opportunities Column */}
-            <div className="bg-white border border-[#e8e5e0] p-6 space-y-4 shadow-2xs">
+            <div className="bg-[#f9f8f5] border border-[#e8e5e0] p-4 space-y-4">
               <div className="flex items-center gap-2 pb-2 border-b border-[#e8e5e0]">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#2c6e6a] inline-block" />
                 <h3 className="font-serif text-[17px] text-[#121212] font-normal">
@@ -481,7 +497,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
               </div>
 
               <ul className="space-y-3.5 text-[12.5px] leading-relaxed text-[#55534e]">
-                {client.strategicMatrix.opportunities.map((opp, idx) => (
+                {client.advisory.opportunities.map((opp, idx) => (
                   <li key={idx} className="flex items-start gap-2.5">
                     <span className="text-[#2c6e6a] text-xs mt-0.5 font-bold">•</span>
                     <span>
@@ -491,6 +507,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
                   </li>
                 ))}
               </ul>
+            </div>
             </div>
           </div>
         </section>

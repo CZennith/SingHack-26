@@ -24,8 +24,9 @@ export interface ClientSummary {
 }
 
 export interface ClientInsights {
-  synthesisedAnalysis: ClientDossier['synthesisedAnalysis'];
-  strategicMatrix: ClientDossier['strategicMatrix'];
+  profileSummary?: ClientDossier['profileSummary'];
+  portfolioExplanation: ClientDossier['portfolioExplanation'];
+  advisory: ClientDossier['advisory'];
 }
 
 const initialsFor = (name: string) => name.trim().split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase();
@@ -63,8 +64,8 @@ export async function fetchClients(signal?: AbortSignal): Promise<ClientDossier[
         trajectory: { deltaPercent: '—', deltaPeriod: '1-Year Delta', startLabel: '—', troughLabel: '—', endLabel: '—', points: [] },
         topHoldings: [], remainingHoldingsNote: 'Holdings load when the dossier is opened.',
       },
-      synthesisedAnalysis: { syncTime: 'Pending', headline: 'Analysis loading', narrative: 'Advisory analysis loads with the client dossier.', whyItMatters: '—', monitor: '—' },
-      strategicMatrix: { risks: [], opportunities: [] },
+      portfolioExplanation: { generatedAt: 'Pending', title: 'Portfolio explanation loading', overview: 'Portfolio attribution loads with the client dossier.', whatMovedAndWhy: '—', whatToWatch: '—' },
+      advisory: { generatedAt: 'Pending', risks: [], opportunities: [] },
     };
   });
 }

@@ -109,14 +109,20 @@ export interface ClientDossier {
     topHoldings: PortfolioHolding[];
     remainingHoldingsNote: string;
   };
-  synthesisedAnalysis: {
-    syncTime: string;
-    headline: string;
-    narrative: string;
-    whyItMatters: string;
-    monitor: string;
+  profileSummary?: {
+    generatedAt: string;
+    title: string;
+    summary: string;
   };
-  strategicMatrix: {
+  portfolioExplanation: {
+    generatedAt: string;
+    title: string;
+    overview: string;
+    whatMovedAndWhy: string;
+    whatToWatch: string;
+  };
+  advisory: {
+    generatedAt: string;
     risks: StrategicPoint[];
     opportunities: StrategicPoint[];
   };

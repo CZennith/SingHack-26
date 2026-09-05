@@ -92,15 +92,22 @@ class StrategicPoint(BaseModel):
     description: str
 
 
-class SynthesisedAnalysis(BaseModel):
-    syncTime: str
-    headline: str
-    narrative: str
-    whyItMatters: str
-    monitor: str
+class AiProfileSummary(BaseModel):
+    generatedAt: str
+    title: str
+    summary: str
+
+
+class PortfolioExplanation(BaseModel):
+    generatedAt: str
+    title: str
+    overview: str
+    whatMovedAndWhy: str
+    whatToWatch: str
 
 
 class StrategicMatrix(BaseModel):
+    generatedAt: str
     risks: list[StrategicPoint]
     opportunities: list[StrategicPoint]
 
@@ -123,14 +130,16 @@ class ClientDossierResponse(BaseModel):
     relationshipManager: RelationshipManager | None = None
     about: ClientAbout
     portfolio: ClientPortfolio
-    # The dossier endpoint may omit generated text; insights are requested separately.
-    synthesisedAnalysis: SynthesisedAnalysis | None = None
-    strategicMatrix: StrategicMatrix | None = None
+    # Generated fields are supplied by the separate advisory request.
+    profileSummary: AiProfileSummary | None = None
+    portfolioExplanation: PortfolioExplanation | None = None
+    advisory: StrategicMatrix | None = None
 
 
 class ClientInsightsResponse(BaseModel):
-    synthesisedAnalysis: SynthesisedAnalysis
-    strategicMatrix: StrategicMatrix
+    profileSummary: AiProfileSummary | None = None
+    portfolioExplanation: PortfolioExplanation
+    advisory: StrategicMatrix
 
 
 from data_repository import get_clients as get_csv_clients
