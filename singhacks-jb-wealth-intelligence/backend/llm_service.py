@@ -41,12 +41,12 @@ Write a concise, factual client context summary based only on the supplied JSON.
 Requirements:
 - Use only information explicitly present in the JSON.
 - Summarize the RM notes.
-- Highlight any key points for the RM to take note. 
+- Highlight any key points for the RM to take note. Flag any contradictions or tensions between stated objectives and current situation or behavior.
 - Do not calculate figures or introduce recommendations, market views, products, securities, or events.
 - Do not mention missing fields or describe your process.
 - Use professional, neutral language suitable for an internal RM briefing.
-- Write one short paragraph.
-- Keep the response below 150 words.
+- Write one short paragraph. 
+- Be concise. Keep the response below 75 words.
         """
     )
     output = openai_client.responses.create(
@@ -79,10 +79,14 @@ def generate_portfolio_explanation(context: dict[str, Any]) -> dict:
     """
     _ = context
 
+    class ExplanationPoint(BaseModel):
+        title: str
+        description: str
+
     class PortfolioExplanation(BaseModel):
         overview: str
-        whatMovedAndWhy: str
-        whatToWatch: str
+        whatMovedAndWhy: list[ExplanationPoint]
+        whatToWatch: list[ExplanationPoint]
 
     response = openai_client.responses.parse(
         model="gpt-5.6-terra",
@@ -97,6 +101,10 @@ def generate_portfolio_explanation(context: dict[str, Any]) -> dict:
 
     Do not present correlation as certainty. If quantity_changed is true, do not
     attribute the full value change to market performance. Do not recommend trades.
+
+    Return 1–3 titled points for whatMovedAndWhy and 1–3 titled points for
+    whatToWatch. Each point must have a short 1-4 word title and a client-friendly
+    description. Each section should be no more than 100 words.
     """,
         input=json.dumps(
             context["portfolio_explanation"],
@@ -119,16 +127,11 @@ def generate_portfolio_explanation(context: dict[str, Any]) -> dict:
             if output.overview
             else "No overview generated. Please check the model response."
         ),
-        "whatMovedAndWhy": (
-            output.whatMovedAndWhy
-            if output.whatMovedAndWhy
-            else "No explanation generated. Please check the model response."
-        ),
-        "whatToWatch": (
-            output.whatToWatch
-            if output.whatToWatch
-            else "No watchlist generated. Please check the model response."
-        ),
+        # ``ExplanationPoint`` is local to this OpenAI parse schema. Convert
+        # it to plain dictionaries so FastAPI can validate it as its public
+        # ``StrategicPoint`` response model.
+        "whatMovedAndWhy": [point.model_dump() for point in output.whatMovedAndWhy],
+        "whatToWatch": [point.model_dump() for point in output.whatToWatch],
     }
 
 
@@ -138,28 +141,63 @@ def generate_proactive_advice(context: dict[str, Any]) -> dict:
     Advice must be traceable to deterministic inputs and framed as a
     discussion item for Relationship Manager review.
     """
-    _ = context
+    class AdvicePoint(BaseModel):
+        title: str
+        description: str
 
-    # TODO: Replace with the advisory model call and JSON response.
+    class ProactiveAdvice(BaseModel):
+        risks: list[AdvicePoint]
+        opportunities: list[AdvicePoint]
+
+    def records(frame) -> list[dict]:
+        """Convert repository data frames to JSON-safe source records."""
+        return json.loads(frame.to_json(orient="records", date_format="iso"))
+
+    advisory_context = {
+        "client_description": context["profile_summary"]["client_description"],
+        "rm_notes": context["profile_summary"]["rm_notes"],
+        "portfolio_snapshot": context["dossier"],
+        "portfolio_evidence": context["portfolio_explanation"],
+        "facilities": records(context["facilities"]),
+        "planned_cash_needs": records(context["cash_needs"]),
+        "outstanding_commitments": records(context["commitments"]),
+        "transactions": records(context["transactions"]),
+    }
+
+    response = openai_client.responses.parse(
+        model="gpt-5.6-terra",
+        instructions="""
+You are an assistant for a private-banking Relationship Manager. Identify the
+most material client-specific discussion points from the supplied JSON.
+
+Use only supplied facts. RM notes are dated observations, not independently
+verified facts. For events occurring in 2026, portfolio_evidence.event_log_2026
+is authoritative and overrides your prior knowledge. Do not invent facts,
+prices, events, exposures, or client preferences.
+
+Return 1–3 risks and 1–3 opportunities. Each item needs a concise 1–4 word
+title and a client-specific description of no more than 55 words. Risks should
+describe a supported exposure, constraint, or unresolved issue. Opportunities
+must be framed as an RM-reviewed planning discussion, never an instruction or
+a promise of outcome. Do not recommend named securities or products.
+        """,
+        input=json.dumps(advisory_context, ensure_ascii=False, separators=(",", ":")),
+        text_format=ProactiveAdvice,
+    )
+
+    output = response.output_parsed
+    print("**---**")
+    print(
+        f"Ran LLM for proactive advice for {context['client']['client_name']}. "
+        f"Tokens used: {response.usage.total_tokens}"
+    )
+    print(f"LLM output: {response.output_text}")
+    print("**---**")
+
     return {
         "generatedAt": datetime.datetime.now().strftime("%Y-%m-%d %H:%M SGT"),
-        "risks": [
-            {
-                "title": "Review required",
-                "description": (
-                    "Confirm exposures, liquidity needs, and facility headroom "
-                    "with the RM."
-                ),
-            }
-        ],
-        "opportunities": [
-            {
-                "title": "Planning discussion",
-                "description": (
-                    "Prepare an RM-reviewed proposal aligned to stated objectives."
-                ),
-            }
-        ],
+        "risks": [point.model_dump() for point in output.risks],
+        "opportunities": [point.model_dump() for point in output.opportunities],
     }
 
 

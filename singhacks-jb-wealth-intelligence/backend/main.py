@@ -102,8 +102,8 @@ class PortfolioExplanation(BaseModel):
     generatedAt: str
     title: str
     overview: str
-    whatMovedAndWhy: str
-    whatToWatch: str
+    whatMovedAndWhy: list[StrategicPoint]
+    whatToWatch: list[StrategicPoint]
 
 
 class StrategicMatrix(BaseModel):
